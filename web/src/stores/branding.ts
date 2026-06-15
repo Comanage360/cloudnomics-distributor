@@ -17,9 +17,12 @@ export const useBranding = defineStore("branding", () => {
     loaded.value = true;
   }
 
-  async function save(next: string | null) {
-    logo.value = next; // optimistic
-    await api.saveBranding(next);
+  async function save(nextLogo: string | null, nextCompany?: string) {
+    logo.value = nextLogo; // optimistic
+    if (nextCompany !== undefined) company.value = nextCompany;
+    const r = await api.saveBranding({ logo: nextLogo, company: nextCompany });
+    logo.value = r.logo;
+    if (r.company) company.value = r.company;
   }
 
   return { logo, company, loaded, load, save };

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { getReseller, setResellerLogo } from "../repositories/resellers.js";
+import { getReseller, setResellerLogo, setResellerCompany } from "../repositories/resellers.js";
 
 export const brandingRouter = Router();
 
@@ -10,9 +10,16 @@ brandingRouter.get("/", requireAuth, async (req, res) => {
   res.json({ logo: r?.logo_url ?? null, company: r?.company ?? req.user!.company });
 });
 
-/** Save or clear the reseller's default logo (base64 data URL, or null). */
+/** Save the reseller's default logo and/or company display name. */
 brandingRouter.put("/", requireAuth, async (req, res) => {
-  const logo = typeof req.body?.logo === "string" && req.body.logo ? req.body.logo : null;
-  await setResellerLogo(req.user!.email, logo);
-  res.json({ ok: true, logo });
+  const email = req.user!.email;
+  const body = req.body ?? {};
+  if ("logo" in body) {
+    await setResellerLogo(email, typeof body.logo === "string" && body.logo ? body.logo : null);
+  }
+  if (typeof body.company === "string" && body.company.trim()) {
+    await setResellerCompany(email, body.company.trim());
+  }
+  const r = await getReseller(email);
+  res.json({ logo: r?.logo_url ?? null, company: r?.company ?? "" });
 });

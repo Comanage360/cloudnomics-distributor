@@ -47,10 +47,10 @@ export const api = {
 
   getBranding: () => req<{ logo: string | null; company: string }>("/api/branding"),
 
-  saveBranding: (logo: string | null) =>
-    req<{ ok: boolean; logo: string | null }>("/api/branding", {
+  saveBranding: (payload: { logo: string | null; company?: string }) =>
+    req<{ logo: string | null; company: string }>("/api/branding", {
       method: "PUT",
-      body: JSON.stringify({ logo }),
+      body: JSON.stringify(payload),
     }),
 
   createQuote: (payload: Record<string, unknown>) =>

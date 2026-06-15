@@ -82,7 +82,7 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
     totals,
     customerName: quote.customer_name || "Customer",
     customerEmail: quote.customer_email || "",
-    resellerCompany: req.user!.company,
+    resellerCompany: (await getReseller(req.user!.email))?.company || req.user!.company,
     logoBuffer: logoToBuffer(quote.logo),
   });
 
@@ -109,7 +109,7 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     totals,
     customerName: quote.customer_name || "Customer",
     customerEmail: quote.customer_email || "",
-    resellerCompany: req.user!.company,
+    resellerCompany: (await getReseller(req.user!.email))?.company || req.user!.company,
     logoBuffer: logoToBuffer(quote.logo),
   });
 

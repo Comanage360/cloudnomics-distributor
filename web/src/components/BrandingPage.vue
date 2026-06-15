@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useBranding } from "../stores/branding";
+import { useSession } from "../stores/session";
 
 const branding = useBranding();
+const session = useSession();
 const saving = ref(false);
 const emit = defineEmits<{ toast: [msg: string] }>();
 
@@ -21,7 +23,9 @@ function onLogo(e: Event) {
 async function save() {
   saving.value = true;
   try {
-    await branding.save(branding.logo);
+    await branding.save(branding.logo, branding.company.trim() || undefined);
+    // reflect the new company in the top-bar badge immediately
+    if (session.user && branding.company.trim()) session.user.company = branding.company.trim();
     emit("toast", "✅ Branding saved — it'll appear on every new quote");
   } catch (e) {
     emit("toast", `Could not save branding: ${(e as Error).message}`);
@@ -50,8 +54,9 @@ async function remove() {
       </div>
 
       <div class="controls">
-        <div class="company">{{ branding.company || "Your company" }}</div>
-        <p class="hint">PNG or JPEG, ideally a wide transparent logo.</p>
+        <label class="lbl">Company name</label>
+        <input v-model="branding.company" class="input" placeholder="Your company" />
+        <p class="hint">Shown as “Prepared by” on quotes and in the top bar. Logo: PNG or JPEG, ideally wide and transparent.</p>
         <div class="btns">
           <label class="btn-outline file">
             <span>{{ branding.logo ? "Replace logo" : "Upload logo" }}</span>
@@ -77,8 +82,9 @@ h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .logo { max-width: 180px; max-height: 90px; object-fit: contain; }
 .placeholder { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--ink); }
 .controls { flex: 1; min-width: 0; }
-.company { font-weight: 700; font-size: 15px; }
-.hint { font-size: 12px; color: var(--muted); margin: 4px 0 12px; }
+.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+.controls .input { width: 100%; margin-bottom: 0; }
+.hint { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
 .btns { display: flex; gap: 8px; align-items: center; }
 .file { cursor: pointer; }
 .save { width: 100%; margin-top: 14px; }

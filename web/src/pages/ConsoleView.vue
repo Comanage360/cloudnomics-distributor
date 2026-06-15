@@ -82,7 +82,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
         <span class="sub">Distributor Console</span>
       </div>
       <div class="account">
-        <span class="badge">🏢 {{ session.user?.company || 'Reseller' }}</span>
+        <span class="badge">🏢 {{ session.user?.company || branding.company || 'Reseller' }}</span>
         <span class="email">{{ session.user?.email }}</span>
         <button class="btn-ghost" @click="session.logout()">Sign out</button>
       </div>
@@ -133,7 +133,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       :totals="q.totals"
       :customer-name="q.customer.name || 'Customer'"
       :customer-email="q.customer.email"
-      :company="session.user?.company || 'Reseller'"
+      :company="session.user?.company || branding.company || 'Reseller'"
       :logo="branding.logo"
       :quote-number="q.quoteNumber"
       @close="preview = false"

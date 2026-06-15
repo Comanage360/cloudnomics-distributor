@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { signToken } from "../middleware/auth.js";
-import { upsertReseller } from "../repositories/resellers.js";
+import { upsertReseller, getReseller } from "../repositories/resellers.js";
 
 export const authRouter = Router();
 
@@ -13,9 +13,10 @@ authRouter.post("/login", async (req, res) => {
   if (!email || !email.includes("@")) {
     return res.status(400).json({ error: "Valid email required" });
   }
-  const company = (email.split("@")[1]?.split(".")[0] || "reseller");
-  const pretty = company.charAt(0).toUpperCase() + company.slice(1);
-  await upsertReseller(email, pretty);
-  const user = { email, company: pretty };
+  const derived = (email.split("@")[1]?.split(".")[0] || "reseller");
+  const pretty = derived.charAt(0).toUpperCase() + derived.slice(1);
+  await upsertReseller(email, pretty); // seeds company only for a brand-new reseller
+  const reseller = await getReseller(email);
+  const user = { email, company: reseller?.company || pretty };
   res.json({ token: signToken(user), user });
 });
