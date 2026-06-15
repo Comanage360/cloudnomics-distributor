@@ -18,6 +18,7 @@ const doPrint = () => window.print();
 </script>
 
 <template>
+  <Teleport to="body">
   <div class="overlay">
     <div class="sheet-wrap">
       <div class="bar no-print">
@@ -66,6 +67,7 @@ const doPrint = () => window.print();
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <style scoped>
