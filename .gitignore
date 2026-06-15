@@ -5,3 +5,6 @@ server/data/store.json
 dist/
 *.log
 .DS_Store
+
+# build info
+*.tsbuildinfo
