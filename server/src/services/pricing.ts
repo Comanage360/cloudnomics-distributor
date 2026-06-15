@@ -23,11 +23,12 @@ function line(
   key: string,
   label: string,
   meta: string,
+  qty: number,
   listTotal: number,
   reseller: number,
   service: boolean
 ): LineItem {
-  return { key, label, meta, listTotal: round(listTotal), reseller: round(reseller), service };
+  return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service };
 }
 
 /** Smallest priceable firewall that covers the user count, optionally by type. */
@@ -66,16 +67,16 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): Quo
   // "contact for pricing" line so totals stay valid and no implementation/
   // markup math is applied to a non-existent number.
   if (fw.list == null || fw.unit === "on_request") {
-    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Qty 1 · sized to ${users} users · Contact for pricing`, 0, 0, false));
+    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false));
   } else {
     const fwReseller = round(fw.list * (1 - discount));
     items.push(
-      line("fw", `${fw.sku} · ${fw.name}`, `Qty 1 · sized to ${users} users · ${unitLabel(fw.unit)}`, fw.list, fwReseller, false)
+      line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list, fwReseller, false)
     );
 
     if (fwImpl) {
       const v = round(fwReseller * implRate);
-      items.push(line("fwimpl", "Implementation — Firewall", `${pct(implRate)} of hardware`, v, v, true));
+      items.push(line("fwimpl", "Implementation — Firewall", `${pct(implRate)} of hardware`, 1, v, v, true));
     }
   }
 
@@ -84,18 +85,18 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): Quo
     const xdrReseller = round(xdrList * (1 - discount));
     items.push(
       line("xdr", `${pricelist.xdr.sku} · ${pricelist.xdr.name}`,
-        `${users} users × $${pricelist.xdr.listPerUser}/yr`, xdrList, xdrReseller, false)
+        `${users} users × $${pricelist.xdr.listPerUser}/yr`, users, xdrList, xdrReseller, false)
     );
     if (xdrImpl) {
       const v = round(xdrReseller * implRate);
-      items.push(line("xdrimpl", "Implementation — XDR", `${pct(implRate)} of XDR`, v, v, true));
+      items.push(line("xdrimpl", "Implementation — XDR", `${pct(implRate)} of XDR`, 1, v, v, true));
     }
   }
 
   const subtotal = items.reduce((s, i) => s + i.reseller, 0);
   if (managed && subtotal > 0) {
     const v = round(subtotal * managedRate);
-    items.push(line("managed", "Managed Service", `${pct(managedRate)} of subtotal`, v, v, true));
+    items.push(line("managed", "Managed Service", `${pct(managedRate)} of subtotal`, 1, v, v, true));
   }
 
   const resellerTotal = round(items.reduce((s, i) => s + i.reseller, 0));

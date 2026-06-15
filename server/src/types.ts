@@ -35,6 +35,7 @@ export interface LineItem {
   key: string;
   label: string;
   meta: string;
+  qty: number;
   listTotal: number;
   reseller: number;
   service: boolean;

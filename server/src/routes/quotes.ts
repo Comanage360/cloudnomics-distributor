@@ -65,6 +65,7 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
     quoteNumber: number,
     totals,
     customerName: quote.customer_name || "Customer",
+    customerEmail: quote.customer_email || "",
     resellerCompany: req.user!.company,
     logoBuffer: null,
   });
@@ -91,6 +92,7 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     quoteNumber: number,
     totals,
     customerName: quote.customer_name || "Customer",
+    customerEmail: quote.customer_email || "",
     resellerCompany: req.user!.company,
     logoBuffer: null,
   });
