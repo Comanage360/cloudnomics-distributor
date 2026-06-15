@@ -1,0 +1,33 @@
+# Render Blueprint — deploys the API and a managed Postgres.
+# Railway: create a service from the repo (root: server/), add a Postgres
+# plugin, and set the same env vars; Railway injects DATABASE_URL automatically.
+
+services:
+  - type: web
+    name: cloudnomics-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PGSSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cloudnomics-db
+          property: connectionString
+
+databases:
+  - name: cloudnomics-db
+    plan: free

@@ -1,0 +1,70 @@
+:root {
+  --ink: #0e1424;
+  --canvas: #f4f6fa;
+  --surface: #ffffff;
+  --line: #e2e6ef;
+  --text: #131a2b;
+  --muted: #5c6781;
+  --ember: #ff5a36;
+  --ember-soft: #ffede7;
+  --ember-line: #ffd6c9;
+  --success: #12a150;
+  --success-soft: #e6f6ec;
+  --display: "Space Grotesk", system-ui, sans-serif;
+  --body: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { font-family: var(--body); color: var(--text); background: var(--canvas); }
+
+button { font-family: var(--body); cursor: pointer; }
+input { font-family: var(--body); }
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  background: var(--ember); color: #fff; border: none; border-radius: 10px;
+  padding: 10px 16px; font-size: 14px; font-weight: 600;
+}
+.btn-primary:disabled { opacity: .5; cursor: default; }
+.btn-outline {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  background: #fff; color: var(--text); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+  text-decoration: none;
+}
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px; background: transparent;
+  color: var(--muted); border: none; font-size: 13px; padding: 0;
+}
+.input {
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); font-size: 14px; color: var(--text); background: #fff;
+}
+.input:focus, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--ember); outline-offset: 1px;
+}
+
+.fade-up { animation: fu .32s ease both; }
+@keyframes fu { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.1s infinite ease-in-out; }
+@keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+::-webkit-scrollbar { width: 9px; }
+::-webkit-scrollbar-thumb { background: #d6dbe6; border-radius: 9px; }
+
+@media (prefers-reduced-motion: reduce) { .fade-up, .dot { animation: none !important; } }
+
+@media print {
+  body * { visibility: hidden !important; }
+  /* The print sheet lives inside the modal overlay — neutralize the overlay's
+     fixed positioning, backdrop and scroll so the sheet lays out against the
+     page (and paginates) instead of the viewport-sized overlay box. */
+  .overlay { position: static !important; overflow: visible !important; background: none !important; padding: 0 !important; display: block !important; }
+  .sheet-wrap { max-width: none !important; }
+  .sheet { border-radius: 0 !important; }
+  #quote-print, #quote-print * { visibility: visible !important; }
+  #quote-print { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
