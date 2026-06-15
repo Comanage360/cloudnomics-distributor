@@ -21,6 +21,10 @@ function modelLabel(f: { sku: string; maxUsers: number; list: number | null }) {
   return `${f.sku} · up to ${f.maxUsers} users · ${price}`;
 }
 
+// white-label step: require a name and a valid customer email before continuing.
+const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.customer.email.trim()));
+const canContinue = computed(() => q.customer.name.trim().length > 0 && emailOk.value);
+
 function intake() {
   const v = draft.value;
   draft.value = "";
@@ -105,9 +109,17 @@ function onLogo(e: Event) {
         </div>
         <div class="line top">
           <input v-model="q.customer.name" class="input" placeholder="Customer name" />
-          <input v-model="q.customer.email" class="input" placeholder="Customer email" />
+          <input
+            v-model="q.customer.email"
+            type="email"
+            class="input"
+            :class="{ invalid: q.customer.email && !emailOk }"
+            placeholder="Customer email"
+            @keyup.enter="canContinue && q.continueWhitelabel()"
+          />
         </div>
-        <button class="btn-primary full top" :disabled="!q.customer.name || !q.customer.email" @click="q.continueWhitelabel()">Continue</button>
+        <p v-if="q.customer.email && !emailOk" class="hint-err">Enter a valid email address.</p>
+        <button class="btn-primary full top" :disabled="!canContinue" @click="q.continueWhitelabel()">Continue</button>
       </div>
 
       <!-- send + calendar -->
@@ -138,6 +150,8 @@ function onLogo(e: Event) {
 .seg-btn { flex: 1; padding: 9px 0; font-size: 13px; font-weight: 600; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; }
 .seg-btn.on { border-color: var(--ember); color: var(--ember); background: var(--ember-soft); }
 select.input { width: 100%; }
+.hint-err { margin: 8px 2px 0; font-size: 12px; color: var(--ember); }
+.input.invalid { border-color: var(--ember); }
 .file { cursor: pointer; }
 .logo { height: 36px; max-width: 120px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
 .sent { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }

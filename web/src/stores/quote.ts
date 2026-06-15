@@ -160,7 +160,8 @@ export const useQuote = defineStore("quote", () => {
   }
 
   async function continueWhitelabel() {
-    if (!customer.name.trim() || !customer.email.trim()) return;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim());
+    if (!customer.name.trim() || !emailOk) return;
     addUser(`Customer: ${customer.name} (${customer.email})`);
     // finalize on the server (authoritative recompute + persistence)
     try {
