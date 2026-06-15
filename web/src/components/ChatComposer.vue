@@ -30,14 +30,6 @@ function intake() {
   draft.value = "";
   q.submitIntake(v);
 }
-
-function onLogo(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0];
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = () => (q.logo = String(r.result));
-  r.readAsDataURL(f);
-}
 </script>
 
 <template>
@@ -100,13 +92,6 @@ function onLogo(e: Event) {
 
       <!-- white-label -->
       <div v-else-if="q.step === 'whitelabel'">
-        <div class="line wrap">
-          <label class="btn-outline file">
-            <span>{{ q.logo ? "Logo added" : "Upload your logo" }}</span>
-            <input type="file" accept="image/*" hidden @change="onLogo" />
-          </label>
-          <img v-if="q.logo" :src="q.logo" class="logo" alt="logo" />
-        </div>
         <div class="line top">
           <input v-model="q.customer.name" class="input" placeholder="Customer name" />
           <input

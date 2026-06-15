@@ -18,7 +18,6 @@ export const useQuote = defineStore("quote", () => {
     xdr: false, xdrImpl: false, managed: false, markup: 0,
   });
   const customer = reactive({ name: "", email: "" });
-  const logo = ref<string | null>(null);
   const quoteNumber = ref<number | null>(null);
   const sent = ref(false);
 
@@ -50,7 +49,7 @@ export const useQuote = defineStore("quote", () => {
     sel.firewall = null; sel.users = 200; sel.fwImpl = false;
     sel.xdr = false; sel.xdrImpl = false; sel.managed = false; sel.markup = 0;
     customer.name = ""; customer.email = "";
-    logo.value = null; quoteNumber.value = null; sent.value = false;
+    quoteNumber.value = null; sent.value = false;
     messages.value.push({
       id: nextId(), role: "claude",
       text: 'Welcome to the Cloudnomics console. Tell me about the deal — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
@@ -155,7 +154,7 @@ export const useQuote = defineStore("quote", () => {
   async function applyMarkup(pct: number) {
     sel.markup = pct;
     addUser(pct > 0 ? `Apply a ${pct}% markup` : "Sell at cost — no markup");
-    await addClaude("Let's white-label it. Upload your logo and tell me who this quote is going to.");
+    await addClaude("Last step — tell me who this quote is going to. It'll be branded with your saved logo (set it under My branding).");
     step.value = "whitelabel";
   }
 
@@ -170,7 +169,6 @@ export const useQuote = defineStore("quote", () => {
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
         customerName: customer.name, customerEmail: customer.email,
-        logo: logo.value, // white-label logo (base64 data URL) persisted for the PDF
       });
       quoteNumber.value = result.number;
     } catch { /* keep going with local preview if save fails */ }
@@ -196,7 +194,7 @@ export const useQuote = defineStore("quote", () => {
   }
 
   return {
-    pricelist, messages, step, thinking, sel, customer, logo, quoteNumber, sent, totals,
+    pricelist, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
     init, reset, submitIntake, setType, setFirewall, confirmFirewall,
     answerFwImpl, answerXdr, answerXdrImpl,
     answerManaged, applyMarkup, continueWhitelabel, send,

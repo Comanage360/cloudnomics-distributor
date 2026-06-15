@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth.js";
 import { pricelistRouter, recommendRouter } from "./routes/pricelist.js";
 import { quotesRouter } from "./routes/quotes.js";
 import { calendarRouter } from "./routes/calendar.js";
+import { brandingRouter } from "./routes/branding.js";
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use("/api/pricelist", pricelistRouter);
 app.use("/api/recommend", recommendRouter);
 app.use("/api/quotes", quotesRouter);
 app.use("/api/calendar", calendarRouter);
+app.use("/api/branding", brandingRouter);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

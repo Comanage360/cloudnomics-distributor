@@ -45,6 +45,14 @@ export const api = {
 
   listQuotes: () => req<QuoteSummary[]>("/api/quotes"),
 
+  getBranding: () => req<{ logo: string | null; company: string }>("/api/branding"),
+
+  saveBranding: (logo: string | null) =>
+    req<{ ok: boolean; logo: string | null }>("/api/branding", {
+      method: "PUT",
+      body: JSON.stringify({ logo }),
+    }),
+
   createQuote: (payload: Record<string, unknown>) =>
     req<QuoteTotals & { number: number }>("/api/quotes", {
       method: "POST",

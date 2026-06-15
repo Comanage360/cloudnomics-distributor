@@ -7,6 +7,7 @@ import { requireAuth } from "../middleware/auth.js";
 import {
   nextNumber, saveQuote, getQuote, markSent, listQuotes,
 } from "../repositories/quotes.js";
+import { getReseller } from "../repositories/resellers.js";
 import type { QuoteSelection } from "../types.js";
 
 export const quotesRouter = Router();
@@ -55,7 +56,8 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     customerEmail: String(body.customerEmail || ""),
     selection,
     totals,
-    logo: typeof body.logo === "string" ? body.logo : null,
+    // Snapshot the reseller's current branding logo onto the quote.
+    logo: (await getReseller(req.user!.email))?.logo_url ?? null,
   });
 
   res.json({ number, ...totals });

@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, nextTick } from "vue";
 import { useSession } from "../stores/session";
 import { useQuote } from "../stores/quote";
+import { useBranding } from "../stores/branding";
 import { api } from "../api";
 import BrandMark from "../components/BrandMark.vue";
 import ChatThread from "../components/ChatThread.vue";
@@ -11,11 +12,13 @@ import SummaryPanel from "../components/SummaryPanel.vue";
 import SideNav from "../components/SideNav.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
+import BrandingPage from "../components/BrandingPage.vue";
 import QuotePreview from "../components/QuotePreview.vue";
 import type { PortalView, QuoteSummary } from "../types";
 
 const session = useSession();
 const q = useQuote();
+const branding = useBranding();
 const view = ref<PortalView>("assistant");
 const preview = ref(false);
 const scroller = ref<HTMLElement | null>(null);
@@ -37,6 +40,7 @@ async function refreshRecent() {
 onMounted(() => {
   q.init();
   refreshRecent();
+  branding.load();
 });
 
 function navigate(v: PortalView) {
@@ -114,8 +118,13 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       </main>
 
       <!-- Products -->
-      <main v-else class="main full">
+      <main v-else-if="view === 'products'" class="main full">
         <ProductsPage />
+      </main>
+
+      <!-- My branding -->
+      <main v-else class="main full">
+        <BrandingPage @toast="showToast" />
       </main>
     </div>
 
@@ -125,7 +134,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       :customer-name="q.customer.name || 'Customer'"
       :customer-email="q.customer.email"
       :company="session.user?.company || 'Reseller'"
-      :logo="q.logo"
+      :logo="branding.logo"
       :quote-number="q.quoteNumber"
       @close="preview = false"
     />

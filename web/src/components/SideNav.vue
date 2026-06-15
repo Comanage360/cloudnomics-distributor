@@ -28,7 +28,7 @@ const emit = defineEmits<{
 
     <div class="section">
       <div class="label">Account</div>
-      <button class="item" @click="emit('toast', '🖼️ Logo upload happens in the white-label step of a quote')">
+      <button class="item" :class="{ active: view === 'branding' }" @click="emit('navigate', 'branding')">
         <span class="icon">🖼️</span> My branding
       </button>
       <button class="item" @click="emit('toast', '🔗 Calendar reminders are offered after a quote is sent')">
