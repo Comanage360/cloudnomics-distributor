@@ -20,18 +20,19 @@ export interface SaveQuoteInput {
   customerEmail: string;
   selection: QuoteSelection;
   totals: QuoteTotals;
+  logo?: string | null;
 }
 
 export async function saveQuote(input: SaveQuoteInput): Promise<void> {
-  const { number, resellerEmail, customerName, customerEmail, selection, totals } = input;
+  const { number, resellerEmail, customerName, customerEmail, selection, totals, logo = null } = input;
   const client = await (await import("../db.js")).pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO quotes
          (number, reseller_email, customer_name, customer_email, currency,
-          discount, markup, reseller_total, customer_total, margin, selection, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'draft')
+          discount, markup, reseller_total, customer_total, margin, selection, logo, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft')
        ON CONFLICT (number) DO UPDATE SET
          customer_name = EXCLUDED.customer_name,
          customer_email = EXCLUDED.customer_email,
@@ -39,11 +40,12 @@ export async function saveQuote(input: SaveQuoteInput): Promise<void> {
          reseller_total = EXCLUDED.reseller_total,
          customer_total = EXCLUDED.customer_total,
          margin = EXCLUDED.margin,
-         selection = EXCLUDED.selection`,
+         selection = EXCLUDED.selection,
+         logo = EXCLUDED.logo`,
       [
         number, resellerEmail, customerName, customerEmail, totals.currency,
         totals.discount, totals.markup, totals.resellerTotal,
-        totals.customerTotal, totals.margin, JSON.stringify(selection),
+        totals.customerTotal, totals.margin, JSON.stringify(selection), logo,
       ]
     );
     await client.query("DELETE FROM quote_items WHERE quote_number = $1", [number]);
@@ -71,6 +73,7 @@ export interface QuoteRow {
   reseller_email: string;
   markup: string;
   status: string;
+  logo: string | null;
 }
 
 export interface QuoteListRow {

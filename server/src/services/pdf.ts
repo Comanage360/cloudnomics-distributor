@@ -54,10 +54,14 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     const width = right - left;
 
     // ---- Header ----
+    // White-label: show the reseller's logo if they uploaded one; otherwise
+    // brand the quote as Cloudnomics (the distributor), not a derived name.
+    let logoOk = false;
     if (logoBuffer) {
-      try { doc.image(logoBuffer, left, 50, { fit: [200, 50] }); } catch { /* ignore bad logo */ }
-    } else {
-      doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text(resellerCompany, left, 52, { width: 260 });
+      try { doc.image(logoBuffer, left, 50, { fit: [200, 50] }); logoOk = true; } catch { /* fall back to text */ }
+    }
+    if (!logoOk) {
+      doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text("Cloudnomics", left, 52, { width: 260 });
     }
     doc.font("Helvetica").fontSize(8).fillColor(MUTED)
       .text("Authorized Palo Alto Networks distribution via Cloudnomics", left, 86, { width: 260 });

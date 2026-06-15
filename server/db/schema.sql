@@ -41,9 +41,13 @@ CREATE TABLE IF NOT EXISTS quotes (
   customer_total NUMERIC NOT NULL,
   margin         NUMERIC NOT NULL,
   selection      JSONB NOT NULL,
+  logo           TEXT,            -- white-label logo (base64 data URL), optional
   status         TEXT NOT NULL DEFAULT 'draft',
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Add the logo column on databases created before it existed.
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS logo TEXT;
 
 CREATE TABLE IF NOT EXISTS quote_items (
   id             SERIAL PRIMARY KEY,

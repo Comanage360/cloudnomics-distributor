@@ -11,6 +11,14 @@ import type { QuoteSelection } from "../types.js";
 
 export const quotesRouter = Router();
 
+/** Decode a base64 image data URL into a Buffer PDFKit can embed (PNG/JPEG). */
+function logoToBuffer(dataUrl: string | null): Buffer | null {
+  if (!dataUrl) return null;
+  const m = /^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/.exec(dataUrl);
+  if (!m) return null;
+  try { return Buffer.from(m[1], "base64"); } catch { return null; }
+}
+
 quotesRouter.get("/next-number", requireAuth, async (_req, res) => {
   res.json({ number: await nextNumber() });
 });
@@ -47,6 +55,7 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     customerEmail: String(body.customerEmail || ""),
     selection,
     totals,
+    logo: typeof body.logo === "string" ? body.logo : null,
   });
 
   res.json({ number, ...totals });
@@ -72,7 +81,7 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
     customerName: quote.customer_name || "Customer",
     customerEmail: quote.customer_email || "",
     resellerCompany: req.user!.company,
-    logoBuffer: null,
+    logoBuffer: logoToBuffer(quote.logo),
   });
 
   res.setHeader("Content-Type", "application/pdf");
@@ -99,7 +108,7 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     customerName: quote.customer_name || "Customer",
     customerEmail: quote.customer_email || "",
     resellerCompany: req.user!.company,
-    logoBuffer: null,
+    logoBuffer: logoToBuffer(quote.logo),
   });
 
   const result = await sendQuoteEmail({

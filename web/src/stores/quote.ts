@@ -170,6 +170,7 @@ export const useQuote = defineStore("quote", () => {
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
         customerName: customer.name, customerEmail: customer.email,
+        logo: logo.value, // white-label logo (base64 data URL) persisted for the PDF
       });
       quoteNumber.value = result.number;
     } catch { /* keep going with local preview if save fails */ }

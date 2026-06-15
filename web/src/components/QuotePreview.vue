@@ -61,7 +61,7 @@ const doPrint = () => window.print();
           <div class="head">
             <div class="head-left">
               <img v-if="logo" :src="logo" alt="brand" class="logo" />
-              <div v-else class="company">{{ company }}</div>
+              <div v-else class="company">Cloudnomics</div>
               <div class="tagline">Authorized Palo Alto Networks distribution via Cloudnomics</div>
             </div>
             <div class="head-right">
