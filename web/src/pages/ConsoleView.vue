@@ -123,6 +123,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       v-if="preview"
       :totals="q.totals"
       :customer-name="q.customer.name || 'Customer'"
+      :customer-email="q.customer.email"
       :company="session.user?.company || 'Reseller'"
       :logo="q.logo"
       :quote-number="q.quoteNumber"
