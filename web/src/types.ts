@@ -57,3 +57,17 @@ export interface AuthUser {
   email: string;
   company: string;
 }
+
+export type PortalView = "assistant" | "quotes" | "products";
+
+export interface QuoteSummary {
+  number: number;
+  customer_name: string;
+  customer_email: string;
+  customer_total: string;
+  reseller_total: string;
+  markup: string;
+  status: string;
+  created_at: string;
+  sku: string | null;
+}

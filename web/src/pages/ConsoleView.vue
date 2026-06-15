@@ -2,18 +2,59 @@
 import { ref, onMounted, watch, nextTick } from "vue";
 import { useSession } from "../stores/session";
 import { useQuote } from "../stores/quote";
+import { api } from "../api";
 import BrandMark from "../components/BrandMark.vue";
 import ChatThread from "../components/ChatThread.vue";
 import ChatComposer from "../components/ChatComposer.vue";
-import QuotePanel from "../components/QuotePanel.vue";
+import StepTracker from "../components/StepTracker.vue";
+import SummaryPanel from "../components/SummaryPanel.vue";
+import SideNav from "../components/SideNav.vue";
+import MyQuotesPage from "../components/MyQuotesPage.vue";
+import ProductsPage from "../components/ProductsPage.vue";
 import QuotePreview from "../components/QuotePreview.vue";
+import type { PortalView, QuoteSummary } from "../types";
 
 const session = useSession();
 const q = useQuote();
+const view = ref<PortalView>("assistant");
 const preview = ref(false);
 const scroller = ref<HTMLElement | null>(null);
+const recent = ref<QuoteSummary[]>([]);
 
-onMounted(() => q.init());
+// toast
+const toastMsg = ref("");
+let toastTimer: number | undefined;
+function showToast(msg: string) {
+  toastMsg.value = msg;
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => (toastMsg.value = ""), 3500);
+}
+
+async function refreshRecent() {
+  try { recent.value = await api.listQuotes(); } catch { /* non-fatal */ }
+}
+
+onMounted(() => {
+  q.init();
+  refreshRecent();
+});
+
+function navigate(v: PortalView) {
+  view.value = v;
+  if (v === "quotes") refreshRecent();
+}
+function newQuote() {
+  q.reset();
+  view.value = "assistant";
+}
+async function openQuotePdf(n: number) {
+  try {
+    const url = await api.quotePdf(n);
+    window.open(url, "_blank");
+  } catch (e) {
+    showToast(`Could not open PDF: ${(e as Error).message}`);
+  }
+}
 
 // keep the conversation scrolled to the newest message
 watch(
@@ -23,6 +64,8 @@ watch(
     if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight;
   }
 );
+// refresh recent + summary once a quote is persisted
+watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 </script>
 
 <template>
@@ -31,25 +74,49 @@ watch(
       <div class="brand">
         <BrandMark :size="26" />
         <span class="word">Cloudnomics</span>
-        <span class="pill">Distributor</span>
+        <span class="sep">|</span>
+        <span class="sub">Distributor Console</span>
       </div>
       <div class="account">
+        <span class="badge">🏢 {{ session.user?.company || 'Reseller' }}</span>
         <span class="email">{{ session.user?.email }}</span>
         <button class="btn-ghost" @click="session.logout()">Sign out</button>
       </div>
     </header>
 
     <div class="body">
-      <section class="chat">
-        <div ref="scroller" class="scroll">
-          <ChatThread :messages="q.messages" :thinking="q.thinking" />
-        </div>
-        <ChatComposer />
-      </section>
+      <SideNav :view="view" @navigate="navigate" @new-quote="newQuote" @toast="showToast" />
 
-      <aside class="side">
-        <QuotePanel :totals="q.totals" :step="q.step" @preview="preview = true" />
-      </aside>
+      <!-- Quote assistant -->
+      <template v-if="view === 'assistant'">
+        <main class="main">
+          <StepTracker :step="q.step" />
+          <section class="chat">
+            <div ref="scroller" class="scroll">
+              <ChatThread :messages="q.messages" :thinking="q.thinking" />
+            </div>
+            <ChatComposer />
+          </section>
+        </main>
+        <SummaryPanel
+          :totals="q.totals"
+          :addons="{ impl: q.sel.fwImpl, xdr: q.sel.xdr, managed: q.sel.managed }"
+          :recent="recent"
+          :ready="q.step === 'send' || q.step === 'done'"
+          @preview="preview = true"
+          @open="openQuotePdf"
+        />
+      </template>
+
+      <!-- My quotes -->
+      <main v-else-if="view === 'quotes'" class="main full">
+        <MyQuotesPage @new-quote="newQuote" @toast="showToast" />
+      </main>
+
+      <!-- Products -->
+      <main v-else class="main full">
+        <ProductsPage />
+      </main>
     </div>
 
     <QuotePreview
@@ -61,23 +128,32 @@ watch(
       :quote-number="q.quoteNumber"
       @close="preview = false"
     />
+
+    <div class="toast" :class="{ show: toastMsg }">{{ toastMsg }}</div>
   </div>
 </template>
 
 <style scoped>
 .app { display: flex; flex-direction: column; height: 100%; background: var(--canvas); }
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .word { font-family: var(--display); font-weight: 700; font-size: 16px; }
-.pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px; letter-spacing: .1em; text-transform: uppercase; }
+.sep { color: var(--line); }
+.sub { font-size: 12px; color: var(--muted); }
 .account { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
-.body { display: flex; flex: 1; min-height: 0; }
-.chat { flex: 1 1 58%; display: flex; flex-direction: column; min-width: 0; }
-.scroll { flex: 1; overflow-y: auto; padding: 22px 22px 8px; }
-.side { flex: 0 0 380px; border-left: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.badge { background: var(--canvas); border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 11px; }
+.email { font-size: 12.5px; }
 
-@media (max-width: 760px) {
+.body { display: flex; flex: 1; min-height: 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.main.full { overflow: hidden; }
+.chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.scroll { flex: 1; overflow-y: auto; padding: 22px 22px 8px; }
+
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); transform: translateY(16px); opacity: 0; transition: all .3s ease; z-index: 1000; max-width: 320px; pointer-events: none; }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+@media (max-width: 860px) {
   .body { flex-direction: column; }
-  .side { flex: 0 0 auto; border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
 }
 </style>

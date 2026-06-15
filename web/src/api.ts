@@ -1,4 +1,4 @@
-import type { AuthUser, Pricelist, QuoteTotals, Recommendation } from "./types";
+import type { AuthUser, Pricelist, QuoteSummary, QuoteTotals, Recommendation } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -42,6 +42,8 @@ export const api = {
     }),
 
   nextNumber: () => req<{ number: number }>("/api/quotes/next-number"),
+
+  listQuotes: () => req<QuoteSummary[]>("/api/quotes"),
 
   createQuote: (payload: Record<string, unknown>) =>
     req<QuoteTotals & { number: number }>("/api/quotes", {

@@ -5,7 +5,7 @@ import { renderQuotePdf } from "../services/pdf.js";
 import { sendQuoteEmail } from "../services/mailer.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
-  nextNumber, saveQuote, getQuote, markSent,
+  nextNumber, saveQuote, getQuote, markSent, listQuotes,
 } from "../repositories/quotes.js";
 import type { QuoteSelection } from "../types.js";
 
@@ -13,6 +13,11 @@ export const quotesRouter = Router();
 
 quotesRouter.get("/next-number", requireAuth, async (_req, res) => {
   res.json({ number: await nextNumber() });
+});
+
+/** List the authenticated reseller's quotes (newest first). */
+quotesRouter.get("/", requireAuth, async (req, res) => {
+  res.json(await listQuotes(req.user!.email));
 });
 
 /** Build + persist a quote from the reseller's selections. */

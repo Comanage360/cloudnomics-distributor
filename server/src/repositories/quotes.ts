@@ -73,6 +73,31 @@ export interface QuoteRow {
   status: string;
 }
 
+export interface QuoteListRow {
+  number: number;
+  customer_name: string;
+  customer_email: string;
+  customer_total: string;
+  reseller_total: string;
+  markup: string;
+  status: string;
+  created_at: string;
+  sku: string | null;
+}
+
+/** All quotes for a reseller, newest first — powers My Quotes + Recent Quotes. */
+export async function listQuotes(resellerEmail: string): Promise<QuoteListRow[]> {
+  const r = await query<QuoteListRow>(
+    `SELECT number, customer_name, customer_email, customer_total, reseller_total,
+            markup, status, created_at, selection->>'sku' AS sku
+       FROM quotes
+      WHERE reseller_email = $1
+      ORDER BY number DESC`,
+    [resellerEmail]
+  );
+  return r.rows;
+}
+
 export async function getQuote(number: number): Promise<QuoteRow | null> {
   const r = await query<QuoteRow>("SELECT * FROM quotes WHERE number = $1", [number]);
   return r.rows[0] || null;
