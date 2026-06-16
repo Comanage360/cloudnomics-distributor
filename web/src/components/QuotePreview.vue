@@ -76,12 +76,11 @@ const doPrint = () => window.print();
           <div class="head">
             <div class="head-left">
               <template v-if="isPartner">
-                <img src="/cloudnomics-logo.png" alt="Cloudnomics" class="logo cn-logo" />
+                <img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="logo cn-logo" />
               </template>
               <template v-else>
                 <img v-if="brandLogo" :src="brandLogo" alt="brand" class="logo" />
                 <div v-else class="company">{{ brandName }}</div>
-                <div class="tagline">Palo Alto Networks reseller · supplied via Cloudnomics</div>
               </template>
             </div>
             <div class="head-right">

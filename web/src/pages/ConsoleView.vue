@@ -11,6 +11,7 @@ import StepTracker from "../components/StepTracker.vue";
 import SummaryPanel from "../components/SummaryPanel.vue";
 import SideNav from "../components/SideNav.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
+import MyRenewalsPage from "../components/MyRenewalsPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
 import BrandingPage from "../components/BrandingPage.vue";
 import QuotePreview from "../components/QuotePreview.vue";
@@ -115,6 +116,11 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       <!-- My quotes -->
       <main v-else-if="view === 'quotes'" class="main full">
         <MyQuotesPage @new-quote="newQuote" @toast="showToast" />
+      </main>
+
+      <!-- My renewals -->
+      <main v-else-if="view === 'renewals'" class="main full">
+        <MyRenewalsPage @new-quote="newQuote" />
       </main>
 
       <!-- Products -->

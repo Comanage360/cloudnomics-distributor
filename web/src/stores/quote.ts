@@ -53,7 +53,7 @@ export const useQuote = defineStore("quote", () => {
     quoteNumber.value = null; sent.value = false;
     messages.value.push({
       id: nextId(), role: "claude",
-      text: 'Welcome to the Cloudnomics console. Tell me about the deal — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
+      text: 'Welcome to the Cloudnomics advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
     });
   }
 
@@ -88,7 +88,7 @@ export const useQuote = defineStore("quote", () => {
       text: rec?.message || `Recommended ${picked?.sku} for your requirement.`,
       card: picked ? { firewall: picked, users: sel.users } : undefined,
     });
-    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new deal.", undefined, 650);
+    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new deal (opportunity).", undefined, 650);
     step.value = "competitive";
   }
 
