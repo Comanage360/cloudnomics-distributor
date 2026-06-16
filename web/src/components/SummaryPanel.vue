@@ -23,11 +23,12 @@ const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [numbe
         <div class="sum-total">
           <div class="tl">Total (your cost)</div>
           <div class="tv">{{ money(totals.resellerTotal) }}</div>
-          <div v-if="totals.markup > 0" class="ts">Customer price {{ money(totals.customerTotal) }} · +{{ totals.markup }}%</div>
+          <div class="tl cp-label">Customer price ({{ totals.markup }}%)</div>
+          <div class="tv">{{ money(totals.customerTotal) }}</div>
         </div>
         <div v-if="ready" class="previews">
-          <button class="btn-outline preview" @click="emit('preview', 'partner')">Partner quote · Cloudnomics → you</button>
-          <button class="btn-primary preview" @click="emit('preview', 'customer')">Customer quote · you → customer</button>
+          <button class="btn-outline preview" @click="emit('preview', 'partner')">View Partner Quote</button>
+          <button class="btn-primary preview" @click="emit('preview', 'customer')">View Customer Quote</button>
         </div>
       </template>
       <p v-else class="empty">Build your quote in the chat →</p>
@@ -66,6 +67,7 @@ h4 { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: upp
 .sum-total { background: var(--canvas); border-radius: 8px; padding: 9px 11px; margin-top: 8px; }
 .tl { font-size: 10px; color: var(--muted); }
 .tv { font-size: 17px; font-weight: 800; color: var(--ink); font-family: var(--mono); margin-top: 1px; }
+.cp-label { margin-top: 8px; }
 .ts { font-size: 11px; color: var(--ember); font-weight: 600; margin-top: 2px; }
 .previews { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
 .preview { width: 100%; font-size: 12px; }
