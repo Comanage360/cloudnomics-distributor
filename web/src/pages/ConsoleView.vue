@@ -20,7 +20,7 @@ const session = useSession();
 const q = useQuote();
 const branding = useBranding();
 const view = ref<PortalView>("assistant");
-const preview = ref(false);
+const previewMode = ref<"partner" | "customer" | null>(null);
 const scroller = ref<HTMLElement | null>(null);
 const recent = ref<QuoteSummary[]>([]);
 
@@ -107,7 +107,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
           :addons="{ impl: q.sel.fwImpl, xdr: q.sel.xdr, managed: q.sel.managed }"
           :recent="recent"
           :ready="q.step === 'send' || q.step === 'done'"
-          @preview="preview = true"
+          @preview="previewMode = $event"
           @open="openQuotePdf"
         />
       </template>
@@ -129,14 +129,15 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
     </div>
 
     <QuotePreview
-      v-if="preview"
+      v-if="previewMode"
+      :mode="previewMode"
       :totals="q.totals"
+      :reseller-company="session.user?.company || branding.company || 'Reseller'"
+      :reseller-logo="branding.logo"
       :customer-name="q.customer.name || 'Customer'"
       :customer-email="q.customer.email"
-      :company="session.user?.company || branding.company || 'Reseller'"
-      :logo="branding.logo"
       :quote-number="q.quoteNumber"
-      @close="preview = false"
+      @close="previewMode = null"
     />
 
     <div class="toast" :class="{ show: toastMsg }">{{ toastMsg }}</div>

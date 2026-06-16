@@ -6,7 +6,7 @@ import CalendarBlock from "./CalendarBlock.vue";
 
 const q = useQuote();
 const draft = ref("");
-const markupSlider = ref(15);
+const markupSlider = ref(10);
 
 // selectFw step: hardware (PA) vs virtual (VM + on-request CN) firewall picker.
 const fwType = computed<"hardware" | "virtual">(() =>
@@ -83,10 +83,9 @@ function intake() {
           <span>Your margin</span>
           <span class="markup-val">{{ markupSlider }}%</span>
         </div>
-        <input type="range" min="0" max="40" v-model.number="markupSlider" class="range" />
+        <input type="range" min="5" max="20" v-model.number="markupSlider" class="range" />
         <div class="line top">
-          <button class="btn-primary grow" @click="q.applyMarkup(markupSlider)">Apply {{ markupSlider }}% markup</button>
-          <button class="btn-outline grow" @click="q.applyMarkup(0)">Sell at cost</button>
+          <button class="btn-primary full" @click="q.applyMarkup(markupSlider)">Apply {{ markupSlider }}% markup</button>
         </div>
       </div>
 

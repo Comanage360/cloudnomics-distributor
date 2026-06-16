@@ -8,7 +8,7 @@ defineProps<{
   recent: QuoteSummary[];
   ready: boolean;
 }>();
-const emit = defineEmits<{ preview: []; open: [number: number] }>();
+const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [number: number] }>();
 </script>
 
 <template>
@@ -25,7 +25,10 @@ const emit = defineEmits<{ preview: []; open: [number: number] }>();
           <div class="tv">{{ money(totals.resellerTotal) }}</div>
           <div v-if="totals.markup > 0" class="ts">Customer price {{ money(totals.customerTotal) }} · +{{ totals.markup }}%</div>
         </div>
-        <button v-if="ready" class="btn-primary preview" @click="emit('preview')">Preview customer quote</button>
+        <div v-if="ready" class="previews">
+          <button class="btn-outline preview" @click="emit('preview', 'partner')">Partner quote · Cloudnomics → you</button>
+          <button class="btn-primary preview" @click="emit('preview', 'customer')">Customer quote · you → customer</button>
+        </div>
       </template>
       <p v-else class="empty">Build your quote in the chat →</p>
     </section>
@@ -64,7 +67,8 @@ h4 { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: upp
 .tl { font-size: 10px; color: var(--muted); }
 .tv { font-size: 17px; font-weight: 800; color: var(--ink); font-family: var(--mono); margin-top: 1px; }
 .ts { font-size: 11px; color: var(--ember); font-weight: 600; margin-top: 2px; }
-.preview { width: 100%; margin-top: 10px; }
+.previews { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.preview { width: 100%; font-size: 12px; }
 .tag { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin: 0 4px 5px 0; border: 1px solid; }
 .tag.on { background: var(--success-soft); color: var(--success); border-color: var(--success); }
 .tag.off { background: var(--canvas); color: var(--muted); border-color: var(--line); }

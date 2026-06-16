@@ -4,14 +4,28 @@ import { money } from "../theme";
 import type { QuoteTotals } from "../types";
 
 const props = defineProps<{
+  // partner = Cloudnomics → reseller (base cost); customer = reseller → end customer (with markup)
+  mode: "partner" | "customer";
   totals: QuoteTotals;
+  resellerCompany: string;
+  resellerLogo: string | null;
   customerName: string;
   customerEmail?: string;
-  company: string;
-  logo: string | null;
   quoteNumber: number | null;
 }>();
 defineEmits<{ close: [] }>();
+
+const isPartner = computed(() => props.mode === "partner");
+
+// Brand / parties / pricing all switch on the quote direction.
+const brandLogo = computed(() => (isPartner.value ? null : props.resellerLogo));
+const brandName = computed(() => (isPartner.value ? "Cloudnomics" : props.resellerCompany));
+const billToName = computed(() => (isPartner.value ? props.resellerCompany : props.customerName));
+const billToInfo = computed(() => (isPartner.value ? "" : props.customerEmail || ""));
+const preparedBy = computed(() => (isPartner.value ? "Cloudnomics" : props.resellerCompany));
+const directionLabel = computed(() =>
+  isPartner.value ? "Distributor → Reseller" : "Reseller → Customer"
+);
 
 const today = new Date();
 const fmtDate = (d: Date) => d.toLocaleDateString("en-US");
@@ -21,7 +35,8 @@ const validUntil = computed(() => {
   return fmtDate(d);
 });
 
-const markupMult = computed(() => 1 + props.totals.markup / 100);
+// Partner quote = reseller cost (no markup); customer quote = cost × markup.
+const markupMult = computed(() => (isPartner.value ? 1 : 1 + props.totals.markup / 100));
 
 // Customer-facing rows: list price, effective discount off list, and amount.
 const rows = computed(() =>
@@ -60,12 +75,17 @@ const doPrint = () => window.print();
           <!-- Header -->
           <div class="head">
             <div class="head-left">
-              <img v-if="logo" :src="logo" alt="brand" class="logo" />
-              <div v-else class="company">Cloudnomics</div>
-              <div class="tagline">Authorized Palo Alto Networks distribution via Cloudnomics</div>
+              <img v-if="brandLogo" :src="brandLogo" alt="brand" class="logo" />
+              <div v-else class="company">{{ brandName }}</div>
+              <div class="tagline">
+                {{ isPartner
+                  ? "Authorized Palo Alto Networks Distributor"
+                  : "Palo Alto Networks reseller · supplied via Cloudnomics" }}
+              </div>
             </div>
             <div class="head-right">
               <div class="qtitle">SALES QUOTE</div>
+              <div class="direction">{{ directionLabel }}</div>
               <table class="meta">
                 <tbody>
                   <tr><td>Quotation No.</td><td>{{ quoteNumber ?? 643555 }}</td></tr>
@@ -81,12 +101,12 @@ const doPrint = () => window.print();
           <div class="band">
             <div class="cell">
               <div class="chead">BILL TO</div>
-              <div class="cname">{{ customerName }}</div>
-              <div class="cinfo" v-if="customerEmail">{{ customerEmail }}</div>
+              <div class="cname">{{ billToName }}</div>
+              <div class="cinfo" v-if="billToInfo">{{ billToInfo }}</div>
             </div>
             <div class="cell">
               <div class="chead">PREPARED BY</div>
-              <div class="cname">{{ company }}</div>
+              <div class="cname">{{ preparedBy }}</div>
               <div class="cinfo">via Cloudnomics Distributor Console</div>
             </div>
             <div class="cell total">
@@ -134,7 +154,7 @@ const doPrint = () => window.print();
           <!-- Footer -->
           <div class="foot">
             <div>
-              <div class="fstrong">{{ company }}</div>
+              <div class="fstrong">{{ preparedBy }}</div>
               <div>Prepared via the Cloudnomics Distributor Console</div>
             </div>
             <div class="fnote">
@@ -160,7 +180,8 @@ const doPrint = () => window.print();
 .company { font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
 .tagline { font-size: 11px; color: var(--muted); margin-top: 8px; max-width: 260px; }
 .head-right { text-align: right; flex-shrink: 0; }
-.qtitle { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: .04em; color: var(--ember); margin-bottom: 8px; }
+.qtitle { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: .04em; color: var(--ember); margin-bottom: 2px; }
+.direction { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .meta { font-size: 11.5px; border-collapse: collapse; margin-left: auto; }
 .meta td { padding: 1.5px 0; }
 .meta td:first-child { color: var(--muted); text-align: right; padding-right: 12px; }
