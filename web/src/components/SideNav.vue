@@ -23,6 +23,9 @@ const emit = defineEmits<{
       <button class="item" :class="{ active: view === 'quotes' }" @click="emit('navigate', 'quotes')">
         <span class="icon">📄</span> My quotes
       </button>
+      <button class="item" :class="{ active: view === 'renewals' }" @click="emit('navigate', 'renewals')">
+        <span class="icon">🔄</span> My renewals
+      </button>
       <button class="item" :class="{ active: view === 'products' }" @click="emit('navigate', 'products')">
         <span class="icon">📦</span> Products
       </button>

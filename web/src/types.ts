@@ -59,7 +59,7 @@ export interface AuthUser {
   company: string;
 }
 
-export type PortalView = "assistant" | "quotes" | "products" | "branding";
+export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding";
 
 export interface QuoteSummary {
   number: number;
