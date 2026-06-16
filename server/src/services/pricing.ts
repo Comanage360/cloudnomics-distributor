@@ -7,7 +7,7 @@ import type {
   Firewall,
 } from "../types.js";
 
-const { discount, implRate, managedRate, quoteStart } = config.pricing;
+const { discount, competitiveBonus, implRate, managedRate, quoteStart } = config.pricing;
 
 const round = (n: number) => Math.round(n);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -56,8 +56,12 @@ export function pickFirewall(
 export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): QuoteTotals {
   const {
     sku, users, fwImpl = false, xdr = false,
-    xdrImpl = false, managed = false, markup = 0,
+    xdrImpl = false, managed = false, markup = 0, competitiveModel = "",
   } = selection;
+
+  // Base reseller discount, plus a competitive-upgrade bonus when migrating
+  // from another vendor's product (e.g. Fortinet).
+  const effDiscount = Math.min(0.95, discount + (competitiveModel ? competitiveBonus : 0));
 
   const fw: Firewall =
     pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
@@ -69,7 +73,7 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): Quo
   if (fw.list == null || fw.unit === "on_request") {
     items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false));
   } else {
-    const fwReseller = round(fw.list * (1 - discount));
+    const fwReseller = round(fw.list * (1 - effDiscount));
     items.push(
       line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list, fwReseller, false)
     );
@@ -82,7 +86,7 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): Quo
 
   if (xdr) {
     const xdrList = pricelist.xdr.listPerUser * users;
-    const xdrReseller = round(xdrList * (1 - discount));
+    const xdrReseller = round(xdrList * (1 - effDiscount));
     items.push(
       line("xdr", `${pricelist.xdr.sku} · ${pricelist.xdr.name}`,
         `${users} users × $${pricelist.xdr.listPerUser}/yr`, users, xdrList, xdrReseller, false)
@@ -104,7 +108,7 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): Quo
 
   return {
     items,
-    discount,
+    discount: effDiscount,
     markup,
     resellerTotal,
     customerTotal,

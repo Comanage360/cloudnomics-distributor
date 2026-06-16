@@ -6,7 +6,11 @@ import CalendarBlock from "./CalendarBlock.vue";
 
 const q = useQuote();
 const draft = ref("");
-const markupSlider = ref(10);
+const competitorDraft = ref("");
+const markupSlider = ref(15);
+
+// effective partner discount (30% base, +10% for a competitive upgrade)
+const effDiscount = computed(() => 0.3 + (q.sel.competitiveModel ? 0.1 : 0));
 
 // selectFw step: hardware (PA) vs virtual (VM + on-request CN) firewall picker.
 const fwType = computed<"hardware" | "virtual">(() =>
@@ -17,8 +21,12 @@ const modelOptions = computed(() => {
   return (q.pricelist?.firewalls ?? []).filter((f) => series.includes(f.series));
 });
 function modelLabel(f: { sku: string; maxUsers: number; list: number | null }) {
-  const price = f.list == null ? "on request" : money(Math.round(f.list * 0.7));
+  const price = f.list == null ? "on request" : money(Math.round(f.list * (1 - effDiscount.value)));
   return `${f.sku} · up to ${f.maxUsers} users · ${price}`;
+}
+
+function applyComp() {
+  if (competitorDraft.value.trim()) q.applyCompetitive(competitorDraft.value);
 }
 
 // white-label step: require a name and a valid customer email before continuing.
@@ -37,8 +45,17 @@ function intake() {
     <div class="inner">
       <!-- intake -->
       <div v-if="q.step === 'intake'" class="line">
-        <input v-model="draft" class="input" placeholder="Describe the deal — e.g. best firewall for a 200-user office" @keyup.enter="intake" />
+        <input v-model="draft" class="input" placeholder="Describe the deal — e.g. 200-user office, or the model you're replacing" @keyup.enter="intake" />
         <button class="btn-primary" @click="intake">Send</button>
+      </div>
+
+      <!-- competitive upgrade: optional model being migrated from (+10% discount) -->
+      <div v-else-if="q.step === 'competitive'">
+        <input v-model="competitorDraft" class="input" placeholder="Current firewall model — e.g. FortiGate 100F" @keyup.enter="applyComp" />
+        <div class="line top">
+          <button class="btn-primary grow" :disabled="!competitorDraft.trim()" @click="applyComp">Apply 10% upgrade discount</button>
+          <button class="btn-outline grow" @click="q.skipCompetitive()">Not upgrading</button>
+        </div>
       </div>
 
       <!-- choose firewall: hardware vs virtual + model -->
@@ -83,7 +100,7 @@ function intake() {
           <span>Your margin</span>
           <span class="markup-val">{{ markupSlider }}%</span>
         </div>
-        <input type="range" min="5" max="20" v-model.number="markupSlider" class="range" />
+        <input type="range" min="10" max="20" v-model.number="markupSlider" class="range" />
         <div class="line top">
           <button class="btn-primary full" @click="q.applyMarkup(markupSlider)">Apply {{ markupSlider }}% markup</button>
         </div>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useQuote } from "../stores/quote";
 import type { PortalView } from "../types";
 
+const q = useQuote();
 defineProps<{ view: PortalView }>();
 const emit = defineEmits<{
   navigate: [view: PortalView];
@@ -24,6 +26,18 @@ const emit = defineEmits<{
       <button class="item" :class="{ active: view === 'products' }" @click="emit('navigate', 'products')">
         <span class="icon">📦</span> Products
       </button>
+    </div>
+
+    <div class="section">
+      <div class="label">Promotions</div>
+      <div class="promo" :class="{ active: q.sel.competitiveModel }">
+        <div class="promo-title">🏷️ Competitive Upgrade</div>
+        <div class="promo-sub">
+          {{ q.sel.competitiveModel
+            ? `Applied — ${q.sel.competitiveModel} · +10% off (40% total)`
+            : "Migrating from another vendor? +10% partner discount" }}
+        </div>
+      </div>
     </div>
 
     <div class="section">
@@ -51,4 +65,9 @@ const emit = defineEmits<{
 .item:hover { background: var(--canvas); color: var(--text); }
 .item.active { background: var(--ember-soft); color: var(--ember); font-weight: 600; }
 .icon { font-size: 15px; width: 18px; text-align: center; }
+.promo { padding: 9px 10px; border: 1px dashed var(--line); border-radius: 8px; background: var(--canvas); }
+.promo.active { border-style: solid; border-color: var(--success); background: var(--success-soft); }
+.promo-title { font-size: 12px; font-weight: 700; }
+.promo-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+.promo.active .promo-sub { color: var(--success); }
 </style>

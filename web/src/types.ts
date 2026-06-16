@@ -51,7 +51,7 @@ export interface ChatMessage {
   card?: { firewall: Firewall; users: number };
 }
 export type Step =
-  | "intake" | "selectFw" | "fwImpl" | "xdr" | "xdrImpl"
+  | "intake" | "competitive" | "selectFw" | "fwImpl" | "xdr" | "xdrImpl"
   | "managed" | "markup" | "whitelabel" | "send" | "done";
 
 export interface AuthUser {
