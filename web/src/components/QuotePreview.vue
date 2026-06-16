@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { money } from "../theme";
+import CloudnomicsLogo from "./CloudnomicsLogo.vue";
 import type { QuoteTotals } from "../types";
 
 const props = defineProps<{
@@ -75,13 +76,15 @@ const doPrint = () => window.print();
           <!-- Header -->
           <div class="head">
             <div class="head-left">
-              <img v-if="brandLogo" :src="brandLogo" alt="brand" class="logo" />
-              <div v-else class="company">{{ brandName }}</div>
-              <div class="tagline">
-                {{ isPartner
-                  ? "Authorized Palo Alto Networks Distributor"
-                  : "Palo Alto Networks reseller · supplied via Cloudnomics" }}
-              </div>
+              <template v-if="isPartner">
+                <CloudnomicsLogo :height="46" />
+                <div class="tagline">Authorized Palo Alto Networks Distributor</div>
+              </template>
+              <template v-else>
+                <img v-if="brandLogo" :src="brandLogo" alt="brand" class="logo" />
+                <div v-else class="company">{{ brandName }}</div>
+                <div class="tagline">Palo Alto Networks reseller · supplied via Cloudnomics</div>
+              </template>
             </div>
             <div class="head-right">
               <div class="qtitle">SALES QUOTE</div>
