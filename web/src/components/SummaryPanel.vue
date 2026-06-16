@@ -23,7 +23,7 @@ const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [numbe
         <div class="sum-total">
           <div class="tl">Total (your cost)</div>
           <div class="tv">{{ money(totals.resellerTotal) }}</div>
-          <div class="tl cp-label">Customer price ({{ totals.markup }}%)</div>
+          <div class="tl cp-label">Customer price ({{ totals.markup }}% Markup)</div>
           <div class="tv">{{ money(totals.customerTotal) }}</div>
         </div>
         <div v-if="ready" class="previews">
