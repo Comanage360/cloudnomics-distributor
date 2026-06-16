@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { money } from "../theme";
-import CloudnomicsLogo from "./CloudnomicsLogo.vue";
 import type { QuoteTotals } from "../types";
 
 const props = defineProps<{
@@ -77,8 +76,7 @@ const doPrint = () => window.print();
           <div class="head">
             <div class="head-left">
               <template v-if="isPartner">
-                <CloudnomicsLogo :height="46" />
-                <div class="tagline">Authorized Palo Alto Networks Distributor</div>
+                <img src="/cloudnomics-logo.png" alt="Cloudnomics" class="logo cn-logo" />
               </template>
               <template v-else>
                 <img v-if="brandLogo" :src="brandLogo" alt="brand" class="logo" />
@@ -180,6 +178,7 @@ const doPrint = () => window.print();
 /* Header */
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
 .logo { height: 48px; max-width: 220px; object-fit: contain; }
+.cn-logo { height: 60px; max-width: 260px; }
 .company { font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
 .tagline { font-size: 11px; color: var(--muted); margin-top: 8px; max-width: 260px; }
 .head-right { text-align: right; flex-shrink: 0; }
