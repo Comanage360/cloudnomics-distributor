@@ -27,4 +27,7 @@ export const config = {
     pass: process.env.SMTP_PASS || "",
     from: process.env.FROM_EMAIL || "quotes@cloudnomics.net",
   },
+  sendgrid: {
+    apiKey: process.env.SENDGRID_API_KEY || "",
+  },
 };
