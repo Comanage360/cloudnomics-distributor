@@ -29,6 +29,7 @@ export interface QuoteSelection {
   xdrImpl?: boolean;
   managed?: boolean;
   markup?: number;
+  competitiveModel?: string; // model being migrated from — triggers +10% partner discount
 }
 
 export interface LineItem {

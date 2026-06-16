@@ -15,7 +15,7 @@ export const useQuote = defineStore("quote", () => {
 
   const sel = reactive<Selection>({
     firewall: null, users: 200, fwImpl: false,
-    xdr: false, xdrImpl: false, managed: false, markup: 0,
+    xdr: false, xdrImpl: false, managed: false, markup: 0, competitiveModel: "",
   });
   const customer = reactive({ name: "", email: "" });
   const quoteNumber = ref<number | null>(null);
@@ -48,6 +48,7 @@ export const useQuote = defineStore("quote", () => {
     step.value = "intake";
     sel.firewall = null; sel.users = 200; sel.fwImpl = false;
     sel.xdr = false; sel.xdrImpl = false; sel.managed = false; sel.markup = 0;
+    sel.competitiveModel = "";
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
     messages.value.push({
@@ -87,7 +88,23 @@ export const useQuote = defineStore("quote", () => {
       text: rec?.message || `Recommended ${picked?.sku} for your requirement.`,
       card: picked ? { firewall: picked, users: sel.users } : undefined,
     });
-    await addClaude("Confirm this model, or switch between hardware and virtual and pick a different one.", undefined, 650);
+    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new deal.", undefined, 650);
+    step.value = "competitive";
+  }
+
+  async function applyCompetitive(model: string) {
+    const m = model.trim();
+    if (!m) return;
+    sel.competitiveModel = m;
+    addUser(`Upgrading from ${m}`);
+    await addClaude(`Great — a 10% competitive-upgrade discount is applied, taking your partner discount to 40%. Now confirm the firewall, or switch between hardware and virtual.`);
+    step.value = "selectFw";
+  }
+
+  async function skipCompetitive() {
+    sel.competitiveModel = "";
+    addUser("New deal — not a competitive upgrade");
+    await addClaude("No problem. Confirm the firewall, or switch between hardware and virtual.");
     step.value = "selectFw";
   }
 
@@ -168,6 +185,7 @@ export const useQuote = defineStore("quote", () => {
         sku: sel.firewall?.sku, users: sel.users,
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
+        competitiveModel: sel.competitiveModel,
         customerName: customer.name, customerEmail: customer.email,
       });
       quoteNumber.value = result.number;
@@ -195,7 +213,8 @@ export const useQuote = defineStore("quote", () => {
 
   return {
     pricelist, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
-    init, reset, submitIntake, setType, setFirewall, confirmFirewall,
+    init, reset, submitIntake, applyCompetitive, skipCompetitive,
+    setType, setFirewall, confirmFirewall,
     answerFwImpl, answerXdr, answerXdrImpl,
     answerManaged, applyMarkup, continueWhitelabel, send,
   };

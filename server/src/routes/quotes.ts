@@ -40,6 +40,7 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     xdrImpl: !!body.xdrImpl,
     managed: !!body.managed,
     markup: Number(body.markup || 0),
+    competitiveModel: typeof body.competitiveModel === "string" ? body.competitiveModel.trim() : "",
   };
   if (!selection.sku || !selection.users) {
     return res.status(400).json({ error: "sku and users are required" });

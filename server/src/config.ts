@@ -15,6 +15,7 @@ export const config = {
   },
   pricing: {
     discount: Number(process.env.RESELLER_DISCOUNT ?? 0.3),
+    competitiveBonus: Number(process.env.COMPETITIVE_DISCOUNT ?? 0.1), // extra off for a competitive upgrade
     implRate: Number(process.env.IMPL_RATE ?? 0.15),
     managedRate: Number(process.env.MANAGED_RATE ?? 0.15),
     quoteStart: Number(process.env.QUOTE_START ?? 643555),
@@ -25,5 +26,8 @@ export const config = {
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
     from: process.env.FROM_EMAIL || "quotes@cloudnomics.net",
+  },
+  sendgrid: {
+    apiKey: process.env.SENDGRID_API_KEY || "",
   },
 };

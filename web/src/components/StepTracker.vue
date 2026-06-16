@@ -9,6 +9,7 @@ const STAGES = ["Requirements", "Firewall", "XDR", "Services", "Quote", "Deliver
 // Map the store's fine-grained step to the 6 visible stages.
 const stageOf: Record<Step, number> = {
   intake: 1,
+  competitive: 1,
   selectFw: 2,
   fwImpl: 3,
   xdr: 3,
