@@ -88,7 +88,7 @@ export const useQuote = defineStore("quote", () => {
       text: rec?.message || `Recommended ${picked?.sku} for your requirement.`,
       card: picked ? { firewall: picked, users: sel.users } : undefined,
     });
-    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new opportunity.", undefined, 650);
+    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new deal (opportunity).", undefined, 650);
     step.value = "competitive";
   }
 
