@@ -66,3 +66,17 @@ export async function setResellerLogo(email: string, logo: string | null): Promi
 export async function setResellerCompany(email: string, company: string): Promise<void> {
   await query("UPDATE resellers SET company = $2 WHERE email = $1", [email, company]);
 }
+
+/** Set (or reset) a reseller's password hash, creating the account if missing. */
+export async function setResellerPassword(
+  email: string,
+  company: string,
+  passwordHash: string
+): Promise<void> {
+  await query(
+    `INSERT INTO resellers (email, company, password_hash)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+    [email, company, passwordHash]
+  );
+}
