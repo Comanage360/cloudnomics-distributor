@@ -78,6 +78,11 @@ async function remove() {
 h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .head p { font-size: 13px; color: var(--muted); margin: 4px 0 0; max-width: 560px; }
 .card { display: flex; gap: 24px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: 620px; background: var(--surface); }
+@media (max-width: 760px) {
+  .page { padding: 16px; }
+  .card { flex-direction: column; align-items: stretch; }
+  .preview { width: 100%; }
+}
 .preview { width: 220px; height: 120px; border: 1px dashed var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #fff; flex-shrink: 0; }
 .logo { max-width: 180px; max-height: 90px; object-fit: contain; }
 .placeholder { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--ink); }

@@ -3,7 +3,7 @@ import { useQuote } from "../stores/quote";
 import type { PortalView } from "../types";
 
 const q = useQuote();
-defineProps<{ view: PortalView }>();
+defineProps<{ view: PortalView; open?: boolean }>();
 const emit = defineEmits<{
   navigate: [view: PortalView];
   newQuote: [];
@@ -12,7 +12,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <nav class="sidebar">
+  <nav class="sidebar" :class="{ open }">
     <button class="new-quote" @click="emit('newQuote')">+ New quote</button>
 
     <div class="section">
@@ -73,4 +73,14 @@ const emit = defineEmits<{
 .promo-title { font-size: 12px; font-weight: 700; }
 .promo-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
 .promo.active .promo-sub { color: var(--success); }
+
+/* Mobile: off-canvas drawer */
+@media (max-width: 760px) {
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+    transform: translateX(-100%); transition: transform .25s ease;
+    box-shadow: 2px 0 16px rgba(8,12,22,.18);
+  }
+  .sidebar.open { transform: translateX(0); }
+}
 </style>

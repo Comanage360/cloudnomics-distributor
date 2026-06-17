@@ -51,7 +51,8 @@ async function openPdf(n: number) {
       No quotes yet. Start one from the Quote assistant.
     </div>
 
-    <table v-else class="grid">
+    <div v-else class="tablewrap">
+    <table class="grid">
       <thead>
         <tr>
           <th>Quote #</th>
@@ -80,18 +81,21 @@ async function openPdf(n: number) {
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .page { padding: 24px; overflow-y: auto; height: 100%; }
+.tablewrap { overflow-x: auto; }
+@media (max-width: 760px) { .page { padding: 16px; } }
 .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
 h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .head p { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
 .btn-primary { width: auto; padding: 9px 16px; }
 .state { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; border: 1px dashed var(--line); border-radius: 12px; }
 .state.err { color: var(--ember); border-color: var(--ember-line); }
-.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.grid { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
 .grid td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .r { text-align: right; }

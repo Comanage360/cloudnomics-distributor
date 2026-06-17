@@ -50,6 +50,7 @@ const priceText = (f: Firewall) => (f.list == null ? "On request" : `${money(f.l
     <template v-else>
       <div v-for="g in groups" :key="g.series" class="group">
         <h2>{{ g.label }}</h2>
+        <div class="tablewrap">
         <table class="grid">
           <thead>
             <tr><th>Model</th><th class="r">Up to users</th><th class="r">List price</th></tr>
@@ -62,6 +63,7 @@ const priceText = (f: Firewall) => (f.list == null ? "On request" : `${money(f.l
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div v-if="pricelist?.xdr" class="group">
@@ -89,7 +91,9 @@ h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .state.err { color: var(--ember); }
 .group { margin-bottom: 26px; }
 h2 { font-family: var(--display); font-size: 14px; margin: 0 0 8px; color: var(--ember); }
-.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.grid { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13px; }
+.tablewrap { overflow-x: auto; }
+@media (max-width: 760px) { .page { padding: 16px; } .xdr { flex-direction: column; align-items: flex-start; gap: 8px; } }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
 .grid td { padding: 10px; border-bottom: 1px solid var(--line); }
 .r { text-align: right; }
