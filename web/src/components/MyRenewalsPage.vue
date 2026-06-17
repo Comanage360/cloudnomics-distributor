@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "./Icon.vue";
 defineEmits<{ newQuote: [] }>();
 </script>
 
@@ -13,7 +14,7 @@ defineEmits<{ newQuote: [] }>();
 
     <div class="center">
       <div class="state">
-        <div class="ic">🔄</div>
+        <div class="ic"><Icon name="renewals" :size="30" /></div>
         <p class="t">No renewals yet</p>
         <p class="s">When you build a renewal quote, it'll show up here with its expiry date so you can follow up in time.</p>
       </div>

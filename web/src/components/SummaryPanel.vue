@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { money } from "../theme";
+import Icon from "./Icon.vue";
 import type { QuoteSummary, QuoteTotals } from "../types";
 
 defineProps<{
@@ -45,7 +46,7 @@ const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [numbe
       <h4>Recent quotes</h4>
       <p v-if="!recent.length" class="empty">No quotes yet.</p>
       <button v-for="q in recent.slice(0, 5)" :key="q.number" class="hist" @click="emit('open', q.number)">
-        <span class="hist-ic">📄</span>
+        <span class="hist-ic"><Icon name="quotes" :size="14" /></span>
         <span class="hist-tx">
           <span class="hist-name">{{ q.customer_name || 'Customer' }}</span>
           <span class="hist-sub">{{ q.sku || '—' }} · #{{ q.number }}</span>

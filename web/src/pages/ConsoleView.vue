@@ -10,6 +10,7 @@ import ChatComposer from "../components/ChatComposer.vue";
 import StepTracker from "../components/StepTracker.vue";
 import SummaryPanel from "../components/SummaryPanel.vue";
 import SideNav from "../components/SideNav.vue";
+import Icon from "../components/Icon.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
 import MyRenewalsPage from "../components/MyRenewalsPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
@@ -87,7 +88,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
         <span class="sub">Distributor Console</span>
       </div>
       <div class="account">
-        <span class="badge">🏢 {{ session.user?.company || branding.company || 'Reseller' }}</span>
+        <span class="badge"><Icon name="building" :size="12" /> {{ session.user?.company || branding.company || 'Reseller' }}</span>
         <span class="email">{{ session.user?.email }}</span>
         <button class="btn-ghost" @click="session.logout()">Sign out</button>
       </div>
@@ -163,7 +164,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 .sep { color: var(--line); }
 .sub { font-size: 12px; color: var(--muted); }
 .account { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
-.badge { background: var(--canvas); border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 11px; }
+.badge { background: var(--canvas); border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
 .email { font-size: 12.5px; }
 .hamburger { display: none; background: none; border: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--ink); padding: 2px 6px 2px 0; }
 .backdrop { display: none; }
