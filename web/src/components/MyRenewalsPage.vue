@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "./Icon.vue";
 defineEmits<{ newQuote: [] }>();
 </script>
 
@@ -11,16 +12,19 @@ defineEmits<{ newQuote: [] }>();
       </div>
     </div>
 
-    <div class="state">
-      <div class="ic">🔄</div>
-      <p class="t">No renewals yet</p>
-      <p class="s">When you build a renewal quote, it'll show up here with its expiry date so you can follow up in time.</p>
+    <div class="center">
+      <div class="state">
+        <div class="ic"><Icon name="renewals" :size="30" /></div>
+        <p class="t">No renewals yet</p>
+        <p class="s">When you build a renewal quote, it'll show up here with its expiry date so you can follow up in time.</p>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page { padding: 24px; overflow-y: auto; height: 100%; }
+.page { padding: 24px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; }
+.center { flex: 1; min-height: 55vh; display: flex; align-items: center; justify-content: center; }
 .head { margin-bottom: 18px; }
 h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .head p { font-size: 13px; color: var(--muted); margin: 4px 0 0; }

@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "migrate": "tsx src/db.ts --migrate",
     "typecheck": "tsc --noEmit",
-    "import:pricelist": "tsx scripts/import-pricelist.ts"
+    "import:pricelist": "tsx scripts/import-pricelist.ts",
+    "set-password": "tsx scripts/set-password.ts"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",

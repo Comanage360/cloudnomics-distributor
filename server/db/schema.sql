@@ -22,12 +22,16 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 CREATE TABLE IF NOT EXISTS resellers (
-  id         SERIAL PRIMARY KEY,
-  email      TEXT UNIQUE NOT NULL,
-  company    TEXT,
-  logo_url   TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id            SERIAL PRIMARY KEY,
+  email         TEXT UNIQUE NOT NULL,
+  company       TEXT,
+  logo_url      TEXT,
+  password_hash TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Add password storage on databases created before it existed.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,

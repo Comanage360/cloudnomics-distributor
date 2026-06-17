@@ -63,8 +63,6 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     if (!logoOk) {
       doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text("Cloudnomics", left, 52, { width: 260 });
     }
-    doc.font("Helvetica").fontSize(8).fillColor(MUTED)
-      .text("Authorized Palo Alto Networks distribution via Cloudnomics", left, 86, { width: 260 });
 
     doc.font("Helvetica-Bold").fontSize(20).fillColor(EMBER).text("SALES QUOTE", left, 50, { width, align: "right" });
 
@@ -154,13 +152,17 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     doc.font("Helvetica-Bold").fontSize(13).fillColor(EMBER).text(fmt(subtotal), tx, y, { width: 260, align: "right" });
 
     // ---- Footer ----
-    const fy = doc.page.height - 70;
+    // Constrain every footer text (lineBreak:false / height) so wrapping can
+    // never overflow the bottom margin and make PDFKit append blank pages.
+    const fy = doc.page.height - 88;
     doc.moveTo(left, fy).lineTo(right, fy).lineWidth(0.5).strokeColor(LINE).stroke();
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(INK).text(resellerCompany, left, fy + 8, { width: width / 2 });
-    doc.font("Helvetica").fontSize(8).fillColor(MUTED).text("Prepared via the Cloudnomics Distributor Console", left, fy + 20, { width: width / 2 });
-    doc.font("Helvetica").fontSize(8).fillColor(MUTED).text(
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(INK)
+      .text(resellerCompany, left, fy + 9, { width: width / 2, lineBreak: false });
+    doc.font("Helvetica").fontSize(8).fillColor(MUTED)
+      .text("Prepared via the Cloudnomics Distributor Console", left, fy + 22, { width: width / 2, lineBreak: false });
+    doc.font("Helvetica").fontSize(7.5).fillColor(MUTED).text(
       "Pricing valid 30 days from the quotation date. Palo Alto Networks products supplied through Cloudnomics, authorized distributor.",
-      left + width / 2, fy + 8, { width: width / 2, align: "right" }
+      left + width / 2, fy + 9, { width: width / 2, align: "right", height: 60, ellipsis: true }
     );
 
     doc.end();

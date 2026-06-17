@@ -10,6 +10,7 @@ import ChatComposer from "../components/ChatComposer.vue";
 import StepTracker from "../components/StepTracker.vue";
 import SummaryPanel from "../components/SummaryPanel.vue";
 import SideNav from "../components/SideNav.vue";
+import Icon from "../components/Icon.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
 import MyRenewalsPage from "../components/MyRenewalsPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
@@ -22,6 +23,7 @@ const q = useQuote();
 const branding = useBranding();
 const view = ref<PortalView>("assistant");
 const previewMode = ref<"partner" | "customer" | null>(null);
+const navOpen = ref(false); // mobile sidebar drawer
 const scroller = ref<HTMLElement | null>(null);
 const recent = ref<QuoteSummary[]>([]);
 
@@ -46,9 +48,11 @@ onMounted(() => {
 
 function navigate(v: PortalView) {
   view.value = v;
+  navOpen.value = false; // close the mobile drawer
   if (v === "quotes") refreshRecent();
 }
 function newQuote() {
+  navOpen.value = false;
   q.reset();
   view.value = "assistant";
 }
@@ -77,20 +81,22 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
   <div class="app no-print">
     <header class="topbar">
       <div class="brand">
+        <button class="hamburger" aria-label="Menu" @click="navOpen = !navOpen">☰</button>
         <BrandMark :size="26" />
         <span class="word">Cloudnomics</span>
         <span class="sep">|</span>
         <span class="sub">Distributor Console</span>
       </div>
       <div class="account">
-        <span class="badge">🏢 {{ session.user?.company || branding.company || 'Reseller' }}</span>
+        <span class="badge"><Icon name="building" :size="12" /> {{ session.user?.company || branding.company || 'Reseller' }}</span>
         <span class="email">{{ session.user?.email }}</span>
         <button class="btn-ghost" @click="session.logout()">Sign out</button>
       </div>
     </header>
 
     <div class="body">
-      <SideNav :view="view" @navigate="navigate" @new-quote="newQuote" @toast="showToast" />
+      <div v-if="navOpen" class="backdrop" @click="navOpen = false" />
+      <SideNav :view="view" :open="navOpen" @navigate="navigate" @new-quote="newQuote" @toast="showToast" />
 
       <!-- Quote assistant -->
       <template v-if="view === 'assistant'">
@@ -158,10 +164,12 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 .sep { color: var(--line); }
 .sub { font-size: 12px; color: var(--muted); }
 .account { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
-.badge { background: var(--canvas); border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 11px; }
+.badge { background: var(--canvas); border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
 .email { font-size: 12.5px; }
+.hamburger { display: none; background: none; border: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--ink); padding: 2px 6px 2px 0; }
+.backdrop { display: none; }
 
-.body { display: flex; flex: 1; min-height: 0; }
+.body { display: flex; flex: 1; min-height: 0; position: relative; }
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .main.full { overflow: hidden; }
 .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -170,7 +178,23 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 .toast { position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); transform: translateY(16px); opacity: 0; transition: all .3s ease; z-index: 1000; max-width: 320px; pointer-events: none; }
 .toast.show { transform: translateY(0); opacity: 1; }
 
-@media (max-width: 860px) {
-  .body { flex-direction: column; }
+/* Tablet — tighten the columns so all three still fit */
+@media (max-width: 1024px) {
+  .scroll { padding: 16px 14px 8px; }
+}
+
+/* Phone — sidebar becomes a drawer, panels stack, page scrolls */
+@media (max-width: 760px) {
+  .hamburger { display: block; }
+  .topbar { padding: 10px 14px; }
+  .sub, .email { display: none; }
+
+  .body { flex-direction: column; overflow-y: auto; }
+  .backdrop { display: block; position: fixed; inset: 0; top: 0; background: rgba(8,12,22,.45); z-index: 40; }
+
+  /* let the page scroll instead of nesting scroll areas */
+  .main { flex: none; }
+  .chat { min-height: 60vh; }
+  .scroll { overflow-y: visible; }
 }
 </style>

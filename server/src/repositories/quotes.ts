@@ -74,6 +74,7 @@ export interface QuoteRow {
   markup: string;
   status: string;
   logo: string | null;
+  selection: QuoteSelection;
 }
 
 export interface QuoteListRow {
@@ -101,8 +102,12 @@ export async function listQuotes(resellerEmail: string): Promise<QuoteListRow[]>
   return r.rows;
 }
 
-export async function getQuote(number: number): Promise<QuoteRow | null> {
-  const r = await query<QuoteRow>("SELECT * FROM quotes WHERE number = $1", [number]);
+/** Fetch a quote, scoped to its owning reseller (cross-reseller access returns null). */
+export async function getQuote(number: number, resellerEmail: string): Promise<QuoteRow | null> {
+  const r = await query<QuoteRow>(
+    "SELECT * FROM quotes WHERE number = $1 AND reseller_email = $2",
+    [number, resellerEmail]
+  );
   return r.rows[0] || null;
 }
 

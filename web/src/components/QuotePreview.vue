@@ -220,4 +220,22 @@ const doPrint = () => window.print();
 .foot { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 10.5px; color: var(--muted); }
 .fstrong { font-weight: 700; color: var(--text); font-size: 11.5px; }
 .fnote { max-width: 320px; text-align: right; }
+
+@media (max-width: 760px) {
+  .overlay { padding: 8px; }
+  .sheet { padding: 22px 18px; }
+  .head { flex-direction: column; gap: 14px; }
+  .head-right { text-align: left; }
+  .meta { margin-left: 0; }
+  .meta td:first-child { text-align: left; padding-right: 16px; }
+  .cn-logo { height: 48px; }
+  .band { flex-direction: column; gap: 0; }
+  .band .cell + .cell { border-top: 1px solid var(--line); }
+  .totals { width: 100%; }
+  .foot { flex-direction: column; gap: 8px; }
+  .fnote { max-width: none; text-align: left; }
+  /* drop List Price + Disc columns to fit Qty · Item · Amount */
+  .lines th:nth-child(3), .lines td:nth-child(3),
+  .lines th:nth-child(4), .lines td:nth-child(4) { display: none; }
+}
 </style>
