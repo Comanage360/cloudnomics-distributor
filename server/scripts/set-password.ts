@@ -16,10 +16,6 @@ async function main() {
     console.error('Usage: set-password -- <email> <password> [company]');
     process.exit(1);
   }
-  if (password.length < 8) {
-    console.error("Password must be at least 8 characters.");
-    process.exit(1);
-  }
 
   const derived = email.split("@")[1]?.split(".")[0] || "reseller";
   const company = (companyArg || "").trim() || derived.charAt(0).toUpperCase() + derived.slice(1);

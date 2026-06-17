@@ -12,7 +12,7 @@ const busy = ref(false);
 
 const isRegister = computed(() => mode.value === "register");
 const valid = computed(
-  () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) && pw.value.length >= 8
+  () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) && pw.value.length > 0
 );
 
 async function submit() {
@@ -56,7 +56,7 @@ function toggle() {
         </template>
 
         <label class="lbl">Password</label>
-        <input v-model="pw" type="password" class="input" placeholder="At least 8 characters" @keyup.enter="submit" />
+        <input v-model="pw" type="password" class="input" placeholder="Your password" @keyup.enter="submit" />
 
         <p v-if="session.error" class="err">{{ session.error }}</p>
 
