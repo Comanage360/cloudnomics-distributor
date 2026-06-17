@@ -5,7 +5,6 @@ import { hashPassword, verifyPassword } from "../services/password.js";
 
 export const authRouter = Router();
 
-const MIN_PASSWORD = 8;
 const normalizeEmail = (v: unknown) => String(v || "").trim().toLowerCase();
 
 /** Create a reseller account (email + password). Returns a JWT. */
@@ -15,9 +14,7 @@ authRouter.post("/register", async (req, res) => {
   const companyInput = String(req.body?.company || "").trim();
 
   if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email required" });
-  if (password.length < MIN_PASSWORD) {
-    return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD} characters` });
-  }
+  if (!password) return res.status(400).json({ error: "Password required" });
   if (await getResellerCredentials(email)) {
     return res.status(409).json({ error: "An account with this email already exists" });
   }
