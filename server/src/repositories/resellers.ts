@@ -19,6 +19,36 @@ export async function upsertReseller(email: string, company: string): Promise<vo
   );
 }
 
+export interface ResellerCredentials {
+  email: string;
+  company: string | null;
+  passwordHash: string | null;
+}
+
+/** Fetch a reseller's login credentials (includes the password hash). */
+export async function getResellerCredentials(email: string): Promise<ResellerCredentials | null> {
+  const r = await query<{ email: string; company: string | null; password_hash: string | null }>(
+    "SELECT email, company, password_hash FROM resellers WHERE email = $1",
+    [email]
+  );
+  const row = r.rows[0];
+  return row ? { email: row.email, company: row.company, passwordHash: row.password_hash } : null;
+}
+
+/** Create a reseller account with a hashed password. No-op if the email exists. */
+export async function createReseller(
+  email: string,
+  company: string,
+  passwordHash: string
+): Promise<void> {
+  await query(
+    `INSERT INTO resellers (email, company, password_hash)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (email) DO NOTHING`,
+    [email, company, passwordHash]
+  );
+}
+
 export async function getReseller(email: string): Promise<ResellerRow | null> {
   const r = await query<ResellerRow>(
     "SELECT email, company, logo_url FROM resellers WHERE email = $1",

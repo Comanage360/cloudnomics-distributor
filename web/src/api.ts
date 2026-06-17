@@ -27,10 +27,16 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  login: (email: string) =>
+  login: (email: string, password: string) =>
     req<{ token: string; user: AuthUser }>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
+    }),
+
+  register: (email: string, password: string, company?: string) =>
+    req<{ token: string; user: AuthUser }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, company }),
     }),
 
   pricelist: () => req<Pricelist>("/api/pricelist"),

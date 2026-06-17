@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { loadPricelist, query } from "../db.js";
+import { loadPricelist } from "../db.js";
 import { buildQuote } from "../services/pricing.js";
 import { renderQuotePdf } from "../services/pdf.js";
 import { sendQuoteEmail } from "../services/mailer.js";
@@ -67,16 +67,12 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
 /** Stream the branded customer PDF. */
 quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
   const number = Number(req.params.number);
-  const quote = await getQuote(number);
+  const quote = await getQuote(number, req.user!.email);
   if (!quote) return res.status(404).json({ error: "Quote not found" });
 
   const pricelist = await loadPricelist();
   // Rebuild totals deterministically from the stored selection (source of truth)
-  const stored = await query<{ selection: QuoteSelection }>(
-    "SELECT selection FROM quotes WHERE number = $1",
-    [number]
-  );
-  const totals = buildQuote(stored.rows[0].selection, pricelist);
+  const totals = buildQuote(quote.selection, pricelist);
 
   const pdf = await renderQuotePdf({
     quoteNumber: number,
@@ -95,15 +91,11 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
 /** Email the quote to the customer. */
 quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
   const number = Number(req.params.number);
-  const quote = await getQuote(number);
+  const quote = await getQuote(number, req.user!.email);
   if (!quote) return res.status(404).json({ error: "Quote not found" });
 
   const pricelist = await loadPricelist();
-  const stored = await query<{ selection: QuoteSelection }>(
-    "SELECT selection FROM quotes WHERE number = $1",
-    [number]
-  );
-  const totals = buildQuote(stored.rows[0].selection, pricelist);
+  const totals = buildQuote(quote.selection, pricelist);
 
   const pdf = await renderQuotePdf({
     quoteNumber: number,

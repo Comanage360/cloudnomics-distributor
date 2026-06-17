@@ -1,17 +1,34 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useSession } from "../stores/session";
 import BrandMark from "../components/BrandMark.vue";
 
 const session = useSession();
-const email = ref("john@networksolutions.co.za");
-const pw = ref("demo-access");
+const mode = ref<"login" | "register">("login");
+const email = ref("");
+const pw = ref("");
+const company = ref("");
 const busy = ref(false);
 
+const isRegister = computed(() => mode.value === "register");
+const valid = computed(
+  () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) && pw.value.length >= 8
+);
+
 async function submit() {
+  if (!valid.value || busy.value) return;
   busy.value = true;
-  await session.login(email.value);
+  if (isRegister.value) {
+    await session.register(email.value.trim(), pw.value, company.value.trim() || undefined);
+  } else {
+    await session.login(email.value.trim(), pw.value);
+  }
   busy.value = false;
+}
+
+function toggle() {
+  mode.value = isRegister.value ? "login" : "register";
+  session.error = "";
 }
 </script>
 
@@ -27,20 +44,33 @@ async function submit() {
       </div>
 
       <div class="card">
-        <h1>Reseller sign in</h1>
+        <h1>{{ isRegister ? "Create your account" : "Reseller sign in" }}</h1>
         <p class="sub">Build expert Palo Alto Networks quotes — no expertise required.</p>
 
         <label class="lbl">Work email</label>
-        <input v-model="email" class="input" @keyup.enter="submit" />
+        <input v-model="email" type="email" class="input" placeholder="you@yourcompany.com" @keyup.enter="submit" />
+
+        <template v-if="isRegister">
+          <label class="lbl">Company name <span class="opt">(optional)</span></label>
+          <input v-model="company" class="input" placeholder="Your company" @keyup.enter="submit" />
+        </template>
 
         <label class="lbl">Password</label>
-        <input v-model="pw" type="password" class="input" @keyup.enter="submit" />
+        <input v-model="pw" type="password" class="input" placeholder="At least 8 characters" @keyup.enter="submit" />
 
         <p v-if="session.error" class="err">{{ session.error }}</p>
 
-        <button class="btn-primary full" :disabled="busy" @click="submit">
-          {{ busy ? "Signing in…" : "Sign in to console" }}
+        <button class="btn-primary full" :disabled="busy || !valid" @click="submit">
+          {{ busy ? "Please wait…" : isRegister ? "Create account" : "Sign in to console" }}
         </button>
+
+        <div class="switch">
+          {{ isRegister ? "Already have an account?" : "New reseller?" }}
+          <button class="link" type="button" @click="toggle">
+            {{ isRegister ? "Sign in" : "Create one" }}
+          </button>
+        </div>
+
         <div class="foot">Powered by Cloudnomics · Authorized Palo Alto distributor</div>
       </div>
     </div>
@@ -67,5 +97,9 @@ h1 { font-family: var(--display); font-size: 22px; margin: 0 0 4px; letter-spaci
 .input { margin-bottom: 14px; }
 .err { color: var(--ember); font-size: 13px; margin: -4px 0 12px; }
 .full { width: 100%; margin-top: 8px; }
+.opt { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.switch { text-align: center; margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+.link { background: none; border: none; color: var(--ember); font-weight: 700; cursor: pointer; font-size: 12.5px; padding: 0 2px; }
+.link:hover { text-decoration: underline; }
 .foot { text-align: center; margin-top: 16px; font-size: 12.5px; color: var(--muted); }
 </style>
