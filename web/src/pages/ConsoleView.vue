@@ -81,7 +81,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
     <header class="topbar">
       <div class="brand">
         <button class="hamburger" aria-label="Menu" @click="navOpen = !navOpen">☰</button>
-        <img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="logo" />
+        <img src="/cloudnomics-mark.svg" alt="Cloudnomics" class="logo" />
         <span class="sep">|</span>
         <span class="sub">Distributor Console</span>
       </div>
