@@ -4,7 +4,6 @@ import { useSession } from "../stores/session";
 import { useQuote } from "../stores/quote";
 import { useBranding } from "../stores/branding";
 import { api } from "../api";
-import BrandMark from "../components/BrandMark.vue";
 import ChatThread from "../components/ChatThread.vue";
 import ChatComposer from "../components/ChatComposer.vue";
 import StepTracker from "../components/StepTracker.vue";
@@ -82,8 +81,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
     <header class="topbar">
       <div class="brand">
         <button class="hamburger" aria-label="Menu" @click="navOpen = !navOpen">☰</button>
-        <BrandMark :size="26" />
-        <span class="word">Cloudnomics</span>
+        <img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="logo" />
         <span class="sep">|</span>
         <span class="sub">Distributor Console</span>
       </div>
@@ -160,6 +158,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 .app { display: flex; flex-direction: column; height: 100%; background: var(--canvas); }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; }
+.logo { height: 30px; width: auto; display: block; }
 .word { font-family: var(--display); font-weight: 700; font-size: 16px; }
 .sep { color: var(--line); }
 .sub { font-size: 12px; color: var(--muted); }

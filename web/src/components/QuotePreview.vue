@@ -60,6 +60,33 @@ const rows = computed(() =>
 const subtotal = computed(() => rows.value.reduce((s, r) => s + r.amount, 0));
 
 const doPrint = () => window.print();
+
+const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+function exportCsv() {
+  const header = ["Qty", "Item", "Description", "List Price", "Discount", "Amount"];
+  const body = rows.value.map((r) =>
+    [r.qty, r.label, r.meta, r.listText, r.discText, r.amountText].map(csvCell).join(",")
+  );
+  const totalRow = ["", "", "", "", "Total", money(subtotal.value)].map(csvCell).join(",");
+  const csv = [
+    csvCell(`SALES QUOTE — ${directionLabel.value}`),
+    [csvCell("Quotation No."), csvCell(props.quoteNumber ?? "")].join(","),
+    [csvCell("Bill To"), csvCell(billToName.value)].join(","),
+    "",
+    header.map(csvCell).join(","),
+    ...body,
+    "",
+    totalRow,
+  ].join("\r\n");
+
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `quote-${props.quoteNumber ?? "draft"}-${props.mode}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 </script>
 
 <template>
@@ -67,7 +94,10 @@ const doPrint = () => window.print();
     <div class="overlay">
       <div class="sheet-wrap">
         <div class="bar no-print">
-          <button class="btn-primary" @click="doPrint">Print / Save as PDF</button>
+          <div class="bar-left">
+            <button class="btn-primary" @click="doPrint">Print / Save as PDF</button>
+            <button class="btn-outline" @click="exportCsv">Export CSV</button>
+          </div>
           <button class="btn-outline" @click="$emit('close')">Close</button>
         </div>
 
@@ -171,7 +201,8 @@ const doPrint = () => window.print();
 <style scoped>
 .overlay { position: fixed; inset: 0; background: rgba(8,12,22,.6); display: flex; justify-content: center; padding: 24px; overflow-y: auto; z-index: 50; }
 .sheet-wrap { width: 100%; max-width: 820px; }
-.bar { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.bar { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+.bar-left { display: flex; gap: 8px; flex-wrap: wrap; }
 .sheet { background: #fff; border-radius: 12px; padding: 44px; font-family: var(--body); color: var(--text); }
 
 /* Header */
