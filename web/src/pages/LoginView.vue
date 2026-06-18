@@ -34,11 +34,8 @@ function toggle() {
 <template>
   <div class="screen">
     <div class="wrap">
-      <div class="brand">
-        <div class="logo-chip"><img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="brand-logo" /></div>
-      </div>
-
       <div class="card">
+        <img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="brand-logo" />
         <h1>{{ isRegister ? "Create your account" : "Reseller sign in" }}</h1>
         <p class="sub">Build expert Palo Alto Networks quotes — no expertise required.</p>
 
@@ -82,9 +79,7 @@ function toggle() {
   background-size: auto, 22px 22px;
 }
 .wrap { width: 100%; max-width: 420px; }
-.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; color: #fff; }
-.logo-chip { background: #fff; border-radius: 14px; padding: 14px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-.brand-logo { height: 54px; width: auto; display: block; }
+.brand-logo { display: block; margin: 0 auto 22px; height: 46px; width: auto; max-width: 100%; }
 .wordmark { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
 .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55); }
 .card { background: var(--surface); border-radius: 18px; padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
