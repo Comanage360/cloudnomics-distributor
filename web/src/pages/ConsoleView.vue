@@ -157,8 +157,10 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 <style scoped>
 .app { display: flex; flex-direction: column; height: 100%; background: var(--canvas); }
 .topbar { display: flex; align-items: center; justify-content: space-between; height: 66px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.logo { height: 50px; width: auto; display: block; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; }
+.logo { height: 50px; width: auto; display: block; flex-shrink: 0; }
+.account { flex-shrink: 1; min-width: 0; }
+.account .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .word { font-family: var(--display); font-weight: 700; font-size: 16px; }
 .sep { color: var(--line); }
 .sub { font-size: 12px; color: var(--muted); }
