@@ -35,7 +35,7 @@ function toggle() {
   <div class="screen">
     <div class="wrap">
       <div class="card">
-        <img src="/cloudnomics-logo.svg" alt="Cloudnomics" class="brand-logo" />
+        <img src="/cloudnomics-mark.svg" alt="Cloudnomics" class="brand-logo" />
         <h1>{{ isRegister ? "Create your account" : "Reseller sign in" }}</h1>
         <p class="sub">Build expert Palo Alto Networks quotes — no expertise required.</p>
 
