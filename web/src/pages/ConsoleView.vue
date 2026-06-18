@@ -156,9 +156,9 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 
 <style scoped>
 .app { display: flex; flex-direction: column; height: 100%; background: var(--canvas); }
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.topbar { display: flex; align-items: center; justify-content: space-between; height: 60px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; }
-.logo { height: 30px; width: auto; display: block; }
+.logo { height: 40px; width: auto; display: block; }
 .word { font-family: var(--display); font-weight: 700; font-size: 16px; }
 .sep { color: var(--line); }
 .sub { font-size: 12px; color: var(--muted); }
@@ -185,7 +185,8 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 /* Phone — sidebar becomes a drawer, panels stack, page scrolls */
 @media (max-width: 760px) {
   .hamburger { display: block; }
-  .topbar { padding: 10px 14px; }
+  .topbar { height: 56px; padding: 0 14px; }
+  .logo { height: 34px; }
   .sub, .email { display: none; }
 
   .body { flex-direction: column; overflow-y: auto; }
