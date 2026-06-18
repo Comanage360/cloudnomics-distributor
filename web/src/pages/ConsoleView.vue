@@ -156,7 +156,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 
 <style scoped>
 .app { display: flex; flex-direction: column; height: 100%; background: var(--canvas); }
-.topbar { display: flex; align-items: center; justify-content: space-between; height: 66px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.topbar { display: flex; align-items: center; justify-content: space-between; height: 55px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; }
 .logo { height: 50px; width: auto; display: block; flex-shrink: 0; }
 .account { flex-shrink: 1; min-width: 0; }
