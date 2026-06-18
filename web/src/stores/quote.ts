@@ -53,7 +53,7 @@ export const useQuote = defineStore("quote", () => {
     quoteNumber.value = null; sent.value = false;
     messages.value.push({
       id: nextId(), role: "claude",
-      text: 'Welcome to the Cloudnomics advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
+      text: 'Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
     });
   }
 
