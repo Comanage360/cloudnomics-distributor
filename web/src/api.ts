@@ -10,6 +10,12 @@ export function setToken(t: string | null) {
   else localStorage.removeItem("cn_token");
 }
 
+// Called when an authenticated request is rejected (expired/invalid token).
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
@@ -20,6 +26,12 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     },
   });
   if (!res.ok) {
+    // Token expired/invalid on a protected route → force logout (but not for
+    // the login/register calls themselves, which surface their own errors).
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      setToken(null);
+      onUnauthorized?.();
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${res.status})`);
   }
