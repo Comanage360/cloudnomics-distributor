@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useQuote } from "../stores/quote";
 import { money } from "../theme";
 import CalendarBlock from "./CalendarBlock.vue";
@@ -7,10 +7,11 @@ import CalendarBlock from "./CalendarBlock.vue";
 const q = useQuote();
 const draft = ref("");
 const competitorDraft = ref("");
-const markupSlider = ref(15);
+const markupSlider = ref(q.rates.markupDefault);
+watch(() => q.rates.markupDefault, (d) => { markupSlider.value = d; });
 
-// effective partner discount (30% base, +10% for a competitive upgrade)
-const effDiscount = computed(() => 0.3 + (q.sel.competitiveModel ? 0.1 : 0));
+// effective partner discount (base + competitive-upgrade bonus), from dynamic rates
+const effDiscount = computed(() => q.rates.discount + (q.sel.competitiveModel ? q.rates.competitiveBonus : 0));
 
 // selectFw step: hardware (PA) vs virtual (VM + on-request CN) firewall picker.
 const fwType = computed<"hardware" | "virtual">(() =>
@@ -100,7 +101,7 @@ function intake() {
           <span>Your margin</span>
           <span class="markup-val">{{ markupSlider }}%</span>
         </div>
-        <input type="range" min="10" max="20" v-model.number="markupSlider" class="range" />
+        <input type="range" :min="q.rates.markupMin" :max="q.rates.markupMax" v-model.number="markupSlider" class="range" />
         <div class="line top">
           <button class="btn-primary full" @click="q.applyMarkup(markupSlider)">Apply {{ markupSlider }}% markup</button>
         </div>

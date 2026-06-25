@@ -8,6 +8,7 @@ import {
   nextNumber, saveQuote, getQuote, markSent, listQuotes,
 } from "../repositories/quotes.js";
 import { getReseller } from "../repositories/resellers.js";
+import { getRates } from "../services/rates.js";
 import type { QuoteSelection } from "../types.js";
 
 export const quotesRouter = Router();
@@ -47,7 +48,8 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
   }
 
   const pricelist = await loadPricelist();
-  const totals = buildQuote(selection, pricelist);
+  const rates = await getRates();
+  const totals = buildQuote(selection, pricelist, rates);
   const number = Number(body.number) || (await nextNumber());
 
   await saveQuote({
@@ -72,7 +74,7 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
 
   const pricelist = await loadPricelist();
   // Rebuild totals deterministically from the stored selection (source of truth)
-  const totals = buildQuote(quote.selection, pricelist);
+  const totals = buildQuote(quote.selection, pricelist, await getRates());
 
   const pdf = await renderQuotePdf({
     quoteNumber: number,
@@ -95,7 +97,7 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
   if (!quote) return res.status(404).json({ error: "Quote not found" });
 
   const pricelist = await loadPricelist();
-  const totals = buildQuote(quote.selection, pricelist);
+  const totals = buildQuote(quote.selection, pricelist, await getRates());
 
   const pdf = await renderQuotePdf({
     quoteNumber: number,

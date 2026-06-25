@@ -21,6 +21,16 @@ export interface Pricelist {
   xdr: Xdr;
 }
 
+export interface Rates {
+  discount: number;          // base reseller discount (0.30)
+  competitiveBonus: number;  // extra discount on a competitive upgrade (0.10)
+  implRate: number;          // implementation = implRate × product
+  managedRate: number;       // managed = managedRate × subtotal
+  markupDefault: number;     // default customer markup % (15)
+  markupMin: number;         // markup slider min %
+  markupMax: number;         // markup slider max %
+}
+
 export interface QuoteSelection {
   sku: string;
   users: number;

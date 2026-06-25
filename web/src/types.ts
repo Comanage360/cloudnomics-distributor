@@ -59,6 +59,16 @@ export interface AuthUser {
   company: string;
 }
 
+export interface Rates {
+  discount: number;
+  competitiveBonus: number;
+  implRate: number;
+  managedRate: number;
+  markupDefault: number;
+  markupMin: number;
+  markupMax: number;
+}
+
 export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding";
 
 export interface QuoteSummary {

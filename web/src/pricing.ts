@@ -1,11 +1,12 @@
-import type { LineItem, Pricelist, QuoteTotals } from "./types";
+import type { LineItem, Pricelist, QuoteTotals, Rates } from "./types";
 
 // Mirror of the server pricing rules for instant, live preview as the reseller
-// builds the quote. The server recomputes authoritatively on finalize.
-const DISCOUNT = 0.3;
-const COMPETITIVE = 0.1; // extra partner discount for a competitive upgrade
-const IMPL = 0.15;
-const MANAGED = 0.15;
+// builds the quote. The server recomputes authoritatively on finalize, using
+// the same rates (fetched from /api/rates).
+export const DEFAULT_RATES: Rates = {
+  discount: 0.3, competitiveBonus: 0.1, implRate: 0.15, managedRate: 0.15,
+  markupDefault: 15, markupMin: 10, markupMax: 20,
+};
 
 const round = (n: number) => Math.round(n);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -27,9 +28,10 @@ export interface Selection {
   competitiveModel: string;
 }
 
-export function computeTotals(sel: Selection, pricelist: Pricelist | null): QuoteTotals {
+export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates: Rates = DEFAULT_RATES): QuoteTotals {
   const items: LineItem[] = [];
-  const eff = Math.min(0.95, DISCOUNT + (sel.competitiveModel ? COMPETITIVE : 0));
+  const IMPL = rates.implRate, MANAGED = rates.managedRate;
+  const eff = Math.min(0.95, rates.discount + (sel.competitiveModel ? rates.competitiveBonus : 0));
   if (sel.firewall) {
     const fw = sel.firewall;
     if (fw.list == null || fw.unit === "on_request") {
