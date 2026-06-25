@@ -24,6 +24,7 @@ const sortKey = ref("");
 const sortDir = ref<"asc" | "desc">("asc");
 
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
+const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
 const term = () => search.value.trim().toLowerCase();
 
@@ -197,7 +198,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
       <div v-if="!usage" class="state">Loading…</div>
       <template v-else>
         <div class="cards">
-          <div class="card"><div class="cl">Total cost</div><div class="cv">{{ usd(usage.overall.cost_usd) }}</div></div>
+          <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
           <div class="card"><div class="cl">Recommendations</div><div class="cv">{{ usage.overall.calls }}</div></div>
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
@@ -220,7 +221,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
               <td class="r mono">{{ u.calls }}</td>
               <td class="r mono">{{ Number(u.input_tokens).toLocaleString() }}</td>
               <td class="r mono">{{ Number(u.output_tokens).toLocaleString() }}</td>
-              <td class="r mono strong">{{ usd(u.cost_usd) }}</td>
+              <td class="r mono strong">{{ cost4(u.cost_usd) }}</td>
             </tr>
             <tr v-if="!fUsage.length"><td colspan="5" class="muted">No usage recorded yet.</td></tr>
           </tbody>
