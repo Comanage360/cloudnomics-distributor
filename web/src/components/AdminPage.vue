@@ -172,6 +172,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
             <th class="sortable" @click="sort('number')">Quote #{{ arrow('number') }}</th>
             <th class="sortable" @click="sort('customer_name')">Customer{{ arrow('customer_name') }}</th>
             <th class="sortable" @click="sort('sku')">Product{{ arrow('sku') }}</th>
+            <th class="r sortable" @click="sort('reseller_total')">Reseller cost{{ arrow('reseller_total') }}</th>
             <th class="r sortable" @click="sort('customer_total')">Customer total{{ arrow('customer_total') }}</th>
             <th class="sortable" @click="sort('status')">Status{{ arrow('status') }}</th>
             <th class="sortable" @click="sort('created_at')">Date{{ arrow('created_at') }}</th>
@@ -182,12 +183,13 @@ const rateFields: { key: keyof Rates; label: string }[] = [
               <td class="mono">#{{ q.number }}</td>
               <td>{{ q.customer_name || "Customer" }}</td>
               <td>{{ q.sku || "—" }}</td>
+              <td class="r mono">{{ usd(q.reseller_total) }}</td>
               <td class="r mono strong">{{ usd(q.customer_total) }}</td>
               <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
               <td class="muted">{{ fmtDate(q.created_at) }}</td>
               <td class="r"><button class="link" @click="openPdf(q.number)">Open ↗</button></td>
             </tr>
-            <tr v-if="!fQuotes.length"><td colspan="7" class="muted">No quotes match.</td></tr>
+            <tr v-if="!fQuotes.length"><td colspan="8" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
       </template>

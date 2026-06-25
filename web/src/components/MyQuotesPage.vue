@@ -58,6 +58,7 @@ async function openPdf(n: number) {
           <th>Quote #</th>
           <th>Customer</th>
           <th>Product</th>
+          <th class="r">Your cost</th>
           <th class="r">Markup</th>
           <th class="r">Customer total</th>
           <th>Status</th>
@@ -73,6 +74,7 @@ async function openPdf(n: number) {
             <div class="cmail">{{ q.customer_email }}</div>
           </td>
           <td>{{ q.sku || "—" }}</td>
+          <td class="r mono">{{ money(Math.round(Number(q.reseller_total))) }}</td>
           <td class="r mono">{{ Math.round(Number(q.markup)) }}%</td>
           <td class="r mono strong">{{ money(Math.round(Number(q.customer_total))) }}</td>
           <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
