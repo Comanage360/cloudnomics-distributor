@@ -80,4 +80,5 @@ export interface Recommendation {
 export interface AuthUser {
   email: string;
   company: string;
+  role?: "admin" | "reseller";
 }

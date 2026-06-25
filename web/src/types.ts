@@ -57,6 +57,29 @@ export type Step =
 export interface AuthUser {
   email: string;
   company: string;
+  role?: "admin" | "reseller";
+}
+
+export interface AdminReseller {
+  email: string;
+  company: string | null;
+  role: string;
+  quote_count: number;
+  total_value: string;
+  last_quote_at: string | null;
+}
+
+export interface UsageRow {
+  reseller_email: string;
+  calls: number;
+  input_tokens: string;
+  output_tokens: string;
+  cost_usd: string;
+}
+
+export interface UsageReport {
+  overall: { calls: number; input_tokens: string; output_tokens: string; cost_usd: string };
+  byReseller: UsageRow[];
 }
 
 export interface Rates {
@@ -69,7 +92,11 @@ export interface Rates {
   markupMax: number;
 }
 
-export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding";
+export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";
+
+export interface AdminQuote extends QuoteSummary {
+  reseller_email: string;
+}
 
 export interface QuoteSummary {
   number: number;

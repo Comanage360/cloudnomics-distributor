@@ -23,16 +23,46 @@ export interface ResellerCredentials {
   email: string;
   company: string | null;
   passwordHash: string | null;
+  role: string;
 }
 
-/** Fetch a reseller's login credentials (includes the password hash). */
+/** Fetch a reseller's login credentials (includes the password hash + role). */
 export async function getResellerCredentials(email: string): Promise<ResellerCredentials | null> {
-  const r = await query<{ email: string; company: string | null; password_hash: string | null }>(
-    "SELECT email, company, password_hash FROM resellers WHERE email = $1",
+  const r = await query<{ email: string; company: string | null; password_hash: string | null; role: string }>(
+    "SELECT email, company, password_hash, role FROM resellers WHERE email = $1",
     [email]
   );
   const row = r.rows[0];
-  return row ? { email: row.email, company: row.company, passwordHash: row.password_hash } : null;
+  return row ? { email: row.email, company: row.company, passwordHash: row.password_hash, role: row.role || "reseller" } : null;
+}
+
+/** Promote/demote a reseller. */
+export async function setResellerRole(email: string, role: "admin" | "reseller"): Promise<void> {
+  await query("UPDATE resellers SET role = $2 WHERE email = $1", [email, role]);
+}
+
+export interface ResellerSummary {
+  email: string;
+  company: string | null;
+  role: string;
+  quote_count: number;
+  total_value: string;
+  last_quote_at: string | null;
+}
+
+/** All resellers with quote aggregates — admin dashboard. */
+export async function listResellers(): Promise<ResellerSummary[]> {
+  const r = await query<ResellerSummary>(
+    `SELECT r.email, r.company, r.role,
+            COUNT(q.number)::int AS quote_count,
+            COALESCE(SUM(q.customer_total), 0) AS total_value,
+            MAX(q.created_at) AS last_quote_at
+       FROM resellers r
+       LEFT JOIN quotes q ON q.reseller_email = r.email
+      GROUP BY r.email, r.company, r.role
+      ORDER BY total_value DESC`
+  );
+  return r.rows;
 }
 
 /** Create a reseller account with a hashed password. No-op if the email exists. */

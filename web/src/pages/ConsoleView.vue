@@ -14,6 +14,7 @@ import MyQuotesPage from "../components/MyQuotesPage.vue";
 import MyRenewalsPage from "../components/MyRenewalsPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
 import BrandingPage from "../components/BrandingPage.vue";
+import AdminPage from "../components/AdminPage.vue";
 import QuotePreview from "../components/QuotePreview.vue";
 import type { PortalView, QuoteSummary } from "../types";
 
@@ -94,7 +95,7 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 
     <div class="body">
       <div v-if="navOpen" class="backdrop" @click="navOpen = false" />
-      <SideNav :view="view" :open="navOpen" @navigate="navigate" @new-quote="newQuote" @toast="showToast" />
+      <SideNav :view="view" :open="navOpen" :is-admin="session.isAdmin" @navigate="navigate" @new-quote="newQuote" @toast="showToast" />
 
       <!-- Quote assistant -->
       <template v-if="view === 'assistant'">
@@ -133,8 +134,13 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       </main>
 
       <!-- My branding -->
-      <main v-else class="main full">
+      <main v-else-if="view === 'branding'" class="main full">
         <BrandingPage @toast="showToast" />
+      </main>
+
+      <!-- Admin dashboard -->
+      <main v-else class="main full">
+        <AdminPage @toast="showToast" />
       </main>
     </div>
 

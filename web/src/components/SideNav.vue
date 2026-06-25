@@ -4,7 +4,7 @@ import Icon from "./Icon.vue";
 import type { PortalView } from "../types";
 
 const q = useQuote();
-defineProps<{ view: PortalView; open?: boolean }>();
+defineProps<{ view: PortalView; open?: boolean; isAdmin?: boolean }>();
 const emit = defineEmits<{
   navigate: [view: PortalView];
   newQuote: [];
@@ -29,6 +29,13 @@ const emit = defineEmits<{
       </button>
       <button class="item" :class="{ active: view === 'products' }" @click="emit('navigate', 'products')">
         <Icon name="products" class="icon" /> Products
+      </button>
+    </div>
+
+    <div v-if="isAdmin" class="section">
+      <div class="label">Admin</div>
+      <button class="item" :class="{ active: view === 'admin' }" @click="emit('navigate', 'admin')">
+        <Icon name="settings" class="icon" /> Dashboard
       </button>
     </div>
 

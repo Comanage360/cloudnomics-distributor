@@ -1,11 +1,22 @@
 import { Router } from "express";
+import { config } from "../config.js";
 import { signToken } from "../middleware/auth.js";
-import { createReseller, getResellerCredentials } from "../repositories/resellers.js";
+import { createReseller, getResellerCredentials, setResellerRole } from "../repositories/resellers.js";
 import { hashPassword, verifyPassword } from "../services/password.js";
+import type { AuthUser } from "../types.js";
 
 export const authRouter = Router();
 
 const normalizeEmail = (v: unknown) => String(v || "").trim().toLowerCase();
+
+/** Admins are accounts marked admin, or any email listed in ADMIN_EMAILS. */
+async function resolveRole(email: string, storedRole?: string): Promise<AuthUser["role"]> {
+  if (config.adminEmails.includes(email)) {
+    if (storedRole !== "admin") await setResellerRole(email, "admin"); // auto-promote + persist
+    return "admin";
+  }
+  return storedRole === "admin" ? "admin" : "reseller";
+}
 
 /** Create a reseller account (email + password). Returns a JWT. */
 authRouter.post("/register", async (req, res) => {
@@ -23,7 +34,7 @@ authRouter.post("/register", async (req, res) => {
   const company = companyInput || derived.charAt(0).toUpperCase() + derived.slice(1);
   await createReseller(email, company, await hashPassword(password));
 
-  const user = { email, company };
+  const user: AuthUser = { email, company, role: await resolveRole(email) };
   res.json({ token: signToken(user), user });
 });
 
@@ -38,6 +49,10 @@ authRouter.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
-  const user = { email, company: cred.company || "Reseller" };
+  const user: AuthUser = {
+    email,
+    company: cred.company || "Reseller",
+    role: await resolveRole(email, cred.role),
+  };
   res.json({ token: signToken(user), user });
 });
