@@ -62,6 +62,12 @@ export interface QuoteTotals {
   currency: string;
 }
 
+export interface UsageInfo {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface Recommendation {
   sku: string;
   users: number;

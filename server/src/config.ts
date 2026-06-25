@@ -33,4 +33,9 @@ export const config = {
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY || "",
   },
+  aiPricing: {
+    // USD per 1M tokens (override per your Anthropic plan). Defaults ≈ Sonnet.
+    inputPerM: Number(process.env.AI_INPUT_PER_M ?? 3),
+    outputPerM: Number(process.env.AI_OUTPUT_PER_M ?? 15),
+  },
 };

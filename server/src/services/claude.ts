@@ -1,5 +1,10 @@
 import { config } from "../config.js";
-import type { Pricelist, Recommendation } from "../types.js";
+import type { Pricelist, Recommendation, UsageInfo } from "../types.js";
+
+export interface RecommendResult {
+  recommendation: Recommendation;
+  usage: UsageInfo | null; // null on the local fallback (no API call)
+}
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 
@@ -36,17 +41,21 @@ export function fallbackRecommendation(
 }
 
 interface AnthropicTextBlock { type: string; text?: string }
-interface AnthropicResponse { content?: AnthropicTextBlock[] }
+interface AnthropicResponse {
+  content?: AnthropicTextBlock[];
+  usage?: { input_tokens?: number; output_tokens?: number };
+}
 
 /**
  * Ask Claude to recommend the best firewall SKU. Falls back locally on any
  * failure or when no API key is configured. Claude never does the pricing math.
+ * Returns the recommendation plus token usage (null on the local fallback).
  */
 export async function recommendFirewall(
   requirement: string,
   pricelist: Pricelist
-): Promise<Recommendation> {
-  if (!config.anthropic.apiKey) return fallbackRecommendation(requirement, pricelist);
+): Promise<RecommendResult> {
+  if (!config.anthropic.apiKey) return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
 
   const system =
     "You are the Cloudnomics Palo Alto Networks advisor helping a reseller who is NOT a Palo Alto expert. " +
@@ -108,15 +117,22 @@ export async function recommendFirewall(
         : fallbackRecommendation(requirement, pricelist).users;
 
     return {
-      sku: picked.sku,
-      users,
-      series: picked.series,
-      unit: picked.unit,
-      message: parsed.message || `Recommended ${picked.sku} for your requirement.`,
-      source: "claude",
+      recommendation: {
+        sku: picked.sku,
+        users,
+        series: picked.series,
+        unit: picked.unit,
+        message: parsed.message || `Recommended ${picked.sku} for your requirement.`,
+        source: "claude",
+      },
+      usage: {
+        model: config.anthropic.model,
+        inputTokens: data.usage?.input_tokens ?? 0,
+        outputTokens: data.usage?.output_tokens ?? 0,
+      },
     };
   } catch (err) {
     console.warn("[claude] recommendation failed, using fallback:", (err as Error).message);
-    return fallbackRecommendation(requirement, pricelist);
+    return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
   }
 }

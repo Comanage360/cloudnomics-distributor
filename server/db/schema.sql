@@ -64,5 +64,18 @@ CREATE TABLE IF NOT EXISTS quote_items (
   service        BOOLEAN NOT NULL DEFAULT false
 );
 
+-- Claude token usage & cost per recommendation (for admin reporting).
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id             SERIAL PRIMARY KEY,
+  reseller_email TEXT NOT NULL,
+  quote_number   BIGINT,
+  model          TEXT NOT NULL,
+  input_tokens   INTEGER NOT NULL DEFAULT 0,
+  output_tokens  INTEGER NOT NULL DEFAULT 0,
+  cost_usd       NUMERIC NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_reseller ON ai_usage(reseller_email);
 CREATE INDEX IF NOT EXISTS idx_products_series ON products(series, max_users);
 CREATE INDEX IF NOT EXISTS idx_quote_items_number ON quote_items(quote_number);
