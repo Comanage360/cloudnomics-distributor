@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { api } from "../api";
 import { money } from "../theme";
-import type { AdminReseller, AdminQuote, UsageReport, Rates } from "../types";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
 const emit = defineEmits<{ toast: [msg: string] }>();
 type Tab = "resellers" | "usage" | "rates";
@@ -10,26 +10,72 @@ const tab = ref<Tab>("resellers");
 
 const resellers = ref<AdminReseller[]>([]);
 const quotes = ref<AdminQuote[]>([]);
-const drill = ref<string | null>(null); // reseller email being viewed
+const drill = ref<string | null>(null);
 const usage = ref<UsageReport | null>(null);
 const rates = ref<Rates | null>(null);
 const savingRates = ref(false);
 const loading = ref(false);
 
+// search / filter / sort
+const search = ref("");
+const roleFilter = ref<"all" | "admin" | "reseller">("all");
+const statusFilter = ref<"all" | "draft" | "sent">("all");
+const sortKey = ref("");
+const sortDir = ref<"asc" | "desc">("asc");
+
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
+const term = () => search.value.trim().toLowerCase();
+
+function sort(key: string) {
+  if (sortKey.value === key) sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
+  else { sortKey.value = key; sortDir.value = "asc"; }
+}
+const arrow = (key: string) => (sortKey.value === key ? (sortDir.value === "asc" ? " ▲" : " ▼") : "");
+
+function sortRows<T extends Record<string, unknown>>(rows: T[]): T[] {
+  if (!sortKey.value) return rows;
+  const k = sortKey.value, dir = sortDir.value === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    let av: number | string = a[k] as never, bv: number | string = b[k] as never;
+    const an = Number(av), bn = Number(bv);
+    if (av !== "" && bv !== "" && av != null && bv != null && !Number.isNaN(an) && !Number.isNaN(bn)) { av = an; bv = bn; }
+    else if (k.endsWith("_at")) { av = av ? Date.parse(String(av)) : 0; bv = bv ? Date.parse(String(bv)) : 0; }
+    else { av = String(av ?? "").toLowerCase(); bv = String(bv ?? "").toLowerCase(); }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+}
+
+const fResellers = computed(() =>
+  sortRows(resellers.value.filter((r) => {
+    const t = term();
+    const m = !t || (r.company || "").toLowerCase().includes(t) || r.email.toLowerCase().includes(t);
+    return m && (roleFilter.value === "all" || r.role === roleFilter.value);
+  }))
+);
+const fQuotes = computed(() =>
+  sortRows(quotes.value.filter((q) => {
+    const t = term();
+    const m = !t || (q.customer_name || "").toLowerCase().includes(t) || String(q.number).includes(t) || (q.sku || "").toLowerCase().includes(t);
+    return m && (statusFilter.value === "all" || q.status === statusFilter.value);
+  }))
+);
+const fUsage = computed(() =>
+  sortRows((usage.value?.byReseller || []).filter((u: UsageRow) => !term() || u.reseller_email.toLowerCase().includes(term())))
+);
+
+function resetControls() { search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all"; }
 
 async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { emit("toast", (e as Error).message); } finally { loading.value = false; } }
 async function loadUsage() { try { usage.value = await api.adminUsage(); } catch (e) { emit("toast", (e as Error).message); } }
 async function loadRates() { try { rates.value = await api.adminRates(); } catch (e) { emit("toast", (e as Error).message); } }
 
 async function openReseller(email: string) {
+  resetControls();
   drill.value = email;
   try { quotes.value = await api.adminQuotes(email); } catch (e) { emit("toast", (e as Error).message); }
 }
-async function openPdf(n: number) {
-  try { window.open(await api.adminQuotePdf(n), "_blank"); } catch (e) { emit("toast", (e as Error).message); }
-}
+async function openPdf(n: number) { try { window.open(await api.adminQuotePdf(n), "_blank"); } catch (e) { emit("toast", (e as Error).message); } }
 async function saveRates() {
   if (!rates.value) return;
   savingRates.value = true;
@@ -39,19 +85,18 @@ async function saveRates() {
 }
 
 function go(t: Tab) {
-  tab.value = t; drill.value = null;
+  tab.value = t; drill.value = null; resetControls();
   if (t === "resellers" && !resellers.value.length) loadResellers();
   if (t === "usage" && !usage.value) loadUsage();
   if (t === "rates" && !rates.value) loadRates();
 }
 onMounted(loadResellers);
 
-// rates form fields (percent-friendly labels)
-const rateFields: { key: keyof Rates; label: string; pct?: boolean }[] = [
-  { key: "discount", label: "Reseller discount", pct: true },
-  { key: "competitiveBonus", label: "Competitive upgrade bonus", pct: true },
-  { key: "implRate", label: "Implementation rate", pct: true },
-  { key: "managedRate", label: "Managed service rate", pct: true },
+const rateFields: { key: keyof Rates; label: string }[] = [
+  { key: "discount", label: "Reseller discount" },
+  { key: "competitiveBonus", label: "Competitive upgrade bonus" },
+  { key: "implRate", label: "Implementation rate" },
+  { key: "managedRate", label: "Managed service rate" },
   { key: "markupDefault", label: "Markup default (%)" },
   { key: "markupMin", label: "Markup min (%)" },
   { key: "markupMax", label: "Markup max (%)" },
@@ -74,11 +119,28 @@ const rateFields: { key: keyof Rates; label: string; pct?: boolean }[] = [
     <!-- Resellers -->
     <section v-if="tab === 'resellers'">
       <template v-if="!drill">
+        <div class="toolbar">
+          <input v-model="search" class="search" placeholder="Search company or email…" />
+          <select v-model="roleFilter" class="select">
+            <option value="all">All roles</option>
+            <option value="admin">Admins</option>
+            <option value="reseller">Resellers</option>
+          </select>
+          <span class="count">{{ fResellers.length }} of {{ resellers.length }}</span>
+        </div>
         <div v-if="loading" class="state">Loading…</div>
         <table v-else class="grid">
-          <thead><tr><th>Company</th><th>Email</th><th>Role</th><th class="r">Quotes</th><th class="r">Total value</th><th>Last quote</th><th></th></tr></thead>
+          <thead><tr>
+            <th class="sortable" @click="sort('company')">Company{{ arrow('company') }}</th>
+            <th class="sortable" @click="sort('email')">Email{{ arrow('email') }}</th>
+            <th class="sortable" @click="sort('role')">Role{{ arrow('role') }}</th>
+            <th class="r sortable" @click="sort('quote_count')">Quotes{{ arrow('quote_count') }}</th>
+            <th class="r sortable" @click="sort('total_value')">Total value{{ arrow('total_value') }}</th>
+            <th class="sortable" @click="sort('last_quote_at')">Last quote{{ arrow('last_quote_at') }}</th>
+            <th></th>
+          </tr></thead>
           <tbody>
-            <tr v-for="r in resellers" :key="r.email">
+            <tr v-for="r in fResellers" :key="r.email">
               <td class="strong">{{ r.company || "—" }}</td>
               <td class="muted">{{ r.email }}</td>
               <td><span class="badge" :class="r.role">{{ r.role }}</span></td>
@@ -87,17 +149,35 @@ const rateFields: { key: keyof Rates; label: string; pct?: boolean }[] = [
               <td class="muted">{{ fmtDate(r.last_quote_at) }}</td>
               <td class="r"><button class="link" :disabled="!r.quote_count" @click="openReseller(r.email)">View quotes →</button></td>
             </tr>
+            <tr v-if="!fResellers.length"><td colspan="7" class="muted">No resellers match.</td></tr>
           </tbody>
         </table>
       </template>
 
       <template v-else>
-        <button class="link back" @click="drill = null">← All resellers</button>
+        <button class="link back" @click="drill = null; resetControls()">← All resellers</button>
         <h2>{{ drill }}</h2>
+        <div class="toolbar">
+          <input v-model="search" class="search" placeholder="Search customer, quote #, or product…" />
+          <select v-model="statusFilter" class="select">
+            <option value="all">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+          </select>
+          <span class="count">{{ fQuotes.length }} of {{ quotes.length }}</span>
+        </div>
         <table class="grid">
-          <thead><tr><th>Quote #</th><th>Customer</th><th>Product</th><th class="r">Customer total</th><th>Status</th><th>Date</th><th class="r">PDF</th></tr></thead>
+          <thead><tr>
+            <th class="sortable" @click="sort('number')">Quote #{{ arrow('number') }}</th>
+            <th class="sortable" @click="sort('customer_name')">Customer{{ arrow('customer_name') }}</th>
+            <th class="sortable" @click="sort('sku')">Product{{ arrow('sku') }}</th>
+            <th class="r sortable" @click="sort('customer_total')">Customer total{{ arrow('customer_total') }}</th>
+            <th class="sortable" @click="sort('status')">Status{{ arrow('status') }}</th>
+            <th class="sortable" @click="sort('created_at')">Date{{ arrow('created_at') }}</th>
+            <th class="r">PDF</th>
+          </tr></thead>
           <tbody>
-            <tr v-for="q in quotes" :key="q.number">
+            <tr v-for="q in fQuotes" :key="q.number">
               <td class="mono">#{{ q.number }}</td>
               <td>{{ q.customer_name || "Customer" }}</td>
               <td>{{ q.sku || "—" }}</td>
@@ -106,6 +186,7 @@ const rateFields: { key: keyof Rates; label: string; pct?: boolean }[] = [
               <td class="muted">{{ fmtDate(q.created_at) }}</td>
               <td class="r"><button class="link" @click="openPdf(q.number)">Open ↗</button></td>
             </tr>
+            <tr v-if="!fQuotes.length"><td colspan="7" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
       </template>
@@ -121,17 +202,27 @@ const rateFields: { key: keyof Rates; label: string; pct?: boolean }[] = [
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
         </div>
+        <div class="toolbar">
+          <input v-model="search" class="search" placeholder="Search reseller…" />
+          <span class="count">{{ fUsage.length }} of {{ usage.byReseller.length }}</span>
+        </div>
         <table class="grid">
-          <thead><tr><th>Reseller</th><th class="r">Calls</th><th class="r">Input</th><th class="r">Output</th><th class="r">Cost</th></tr></thead>
+          <thead><tr>
+            <th class="sortable" @click="sort('reseller_email')">Reseller{{ arrow('reseller_email') }}</th>
+            <th class="r sortable" @click="sort('calls')">Calls{{ arrow('calls') }}</th>
+            <th class="r sortable" @click="sort('input_tokens')">Input{{ arrow('input_tokens') }}</th>
+            <th class="r sortable" @click="sort('output_tokens')">Output{{ arrow('output_tokens') }}</th>
+            <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
+          </tr></thead>
           <tbody>
-            <tr v-for="u in usage.byReseller" :key="u.reseller_email">
+            <tr v-for="u in fUsage" :key="u.reseller_email">
               <td>{{ u.reseller_email }}</td>
               <td class="r mono">{{ u.calls }}</td>
               <td class="r mono">{{ Number(u.input_tokens).toLocaleString() }}</td>
               <td class="r mono">{{ Number(u.output_tokens).toLocaleString() }}</td>
               <td class="r mono strong">{{ usd(u.cost_usd) }}</td>
             </tr>
-            <tr v-if="!usage.byReseller.length"><td colspan="5" class="muted">No usage recorded yet.</td></tr>
+            <tr v-if="!fUsage.length"><td colspan="5" class="muted">No usage recorded yet.</td></tr>
           </tbody>
         </table>
       </template>
@@ -163,11 +254,17 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 .tabs button { background: none; border: none; padding: 8px 4px; margin-right: 10px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
 .tabs button.on { color: var(--ember); border-bottom-color: var(--ember); }
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.search { flex: 1; min-width: 200px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); }
+.count { font-size: 12px; color: var(--muted); margin-left: auto; }
 .state { padding: 30px; text-align: center; color: var(--muted); }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
-.grid td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .grid th.r, .grid td.r { text-align: right; }
+.grid th.sortable { cursor: pointer; user-select: none; }
+.grid th.sortable:hover { color: var(--ember); }
+.grid td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .r { text-align: right; white-space: nowrap; }
 .mono { font-family: var(--mono); }
 .strong { font-weight: 700; }
