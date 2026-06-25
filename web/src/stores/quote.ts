@@ -1,14 +1,15 @@
 import { defineStore } from "pinia";
 import { ref, computed, reactive } from "vue";
 import { api } from "../api";
-import { computeTotals, type Selection } from "../pricing";
-import type { ChatMessage, Firewall, Pricelist, Step } from "../types";
+import { computeTotals, DEFAULT_RATES, type Selection } from "../pricing";
+import type { ChatMessage, Firewall, Pricelist, Rates, Step } from "../types";
 
 let mid = 0;
 const nextId = () => ++mid;
 
 export const useQuote = defineStore("quote", () => {
   const pricelist = ref<Pricelist | null>(null);
+  const rates = ref<Rates>(DEFAULT_RATES);
   const messages = ref<ChatMessage[]>([]);
   const step = ref<Step>("intake");
   const thinking = ref(false);
@@ -21,7 +22,7 @@ export const useQuote = defineStore("quote", () => {
   const quoteNumber = ref<number | null>(null);
   const sent = ref(false);
 
-  const totals = computed(() => computeTotals(sel, pricelist.value));
+  const totals = computed(() => computeTotals(sel, pricelist.value, rates.value));
 
   // ---- helpers ----
   function addUser(text: string) {
@@ -40,6 +41,7 @@ export const useQuote = defineStore("quote", () => {
 
   async function init() {
     try { pricelist.value = await api.pricelist(); } catch { /* offline preview still works for firewall list */ }
+    try { rates.value = await api.rates(); } catch { /* fall back to default rates */ }
     reset();
   }
 
@@ -212,7 +214,7 @@ export const useQuote = defineStore("quote", () => {
   }
 
   return {
-    pricelist, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
+    pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
     init, reset, submitIntake, applyCompetitive, skipCompetitive,
     setType, setFirewall, confirmFirewall,
     answerFwImpl, answerXdr, answerXdrImpl,

@@ -5,9 +5,10 @@ import type {
   QuoteTotals,
   LineItem,
   Firewall,
+  Rates,
 } from "../types.js";
 
-const { discount, competitiveBonus, implRate, managedRate, quoteStart } = config.pricing;
+const { quoteStart } = config.pricing;
 
 const round = (n: number) => Math.round(n);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -53,15 +54,16 @@ export function pickFirewall(
  *   managed service        = managedRate * subtotal (products + implementations)
  *   customer price         = reseller total * (1 + markup/100)
  */
-export function buildQuote(selection: QuoteSelection, pricelist: Pricelist): QuoteTotals {
+export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rates: Rates): QuoteTotals {
   const {
     sku, users, fwImpl = false, xdr = false,
     xdrImpl = false, managed = false, markup = 0, competitiveModel = "",
   } = selection;
+  const { implRate, managedRate } = rates;
 
   // Base reseller discount, plus a competitive-upgrade bonus when migrating
   // from another vendor's product (e.g. Fortinet).
-  const effDiscount = Math.min(0.95, discount + (competitiveModel ? competitiveBonus : 0));
+  const effDiscount = Math.min(0.95, rates.discount + (competitiveModel ? rates.competitiveBonus : 0));
 
   const fw: Firewall =
     pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
