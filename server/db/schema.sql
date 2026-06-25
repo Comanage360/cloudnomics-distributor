@@ -27,11 +27,14 @@ CREATE TABLE IF NOT EXISTS resellers (
   company       TEXT,
   logo_url      TEXT,
   password_hash TEXT,
+  role          TEXT NOT NULL DEFAULT 'reseller',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Add password storage on databases created before it existed.
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS password_hash TEXT;
+-- Reseller vs admin role.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'reseller';
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,

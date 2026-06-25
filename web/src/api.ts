@@ -1,4 +1,4 @@
-import type { AuthUser, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation } from "./types";
+import type { AdminQuote, AdminReseller, AuthUser, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, UsageReport } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -98,5 +98,21 @@ export const api = {
     if (!res.ok) throw new Error("Could not load PDF");
     const blob = await res.blob();
     return URL.createObjectURL(blob);
+  },
+
+  // ---- admin ----
+  adminResellers: () => req<AdminReseller[]>("/api/admin/resellers"),
+  adminQuotes: (reseller?: string) =>
+    req<AdminQuote[]>(`/api/admin/quotes${reseller ? `?reseller=${encodeURIComponent(reseller)}` : ""}`),
+  adminUsage: () => req<UsageReport>("/api/admin/usage"),
+  adminRates: () => req<Rates>("/api/admin/rates"),
+  adminSaveRates: (rates: Partial<Rates>) =>
+    req<Rates>("/api/admin/rates", { method: "PUT", body: JSON.stringify(rates) }),
+  async adminQuotePdf(number: number): Promise<string> {
+    const res = await fetch(`${BASE}/api/admin/quotes/${number}/pdf`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Could not load PDF");
+    return URL.createObjectURL(await res.blob());
   },
 };

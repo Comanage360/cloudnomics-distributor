@@ -98,6 +98,7 @@ h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .grid { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
 .grid td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.grid th.r, .grid td.r { text-align: right; }
 .r { text-align: right; }
 .mono { font-family: var(--mono); }
 .strong { font-weight: 700; }

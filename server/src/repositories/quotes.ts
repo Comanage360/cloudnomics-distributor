@@ -89,6 +89,29 @@ export interface QuoteListRow {
   sku: string | null;
 }
 
+export interface AdminQuoteRow extends QuoteListRow {
+  reseller_email: string;
+}
+
+/** All quotes across resellers (admin), optionally filtered to one reseller. */
+export async function listAllQuotes(resellerEmail?: string): Promise<AdminQuoteRow[]> {
+  const r = await query<AdminQuoteRow>(
+    `SELECT number, reseller_email, customer_name, customer_email, customer_total,
+            reseller_total, markup, status, created_at, selection->>'sku' AS sku
+       FROM quotes
+      ${resellerEmail ? "WHERE reseller_email = $1" : ""}
+      ORDER BY number DESC`,
+    resellerEmail ? [resellerEmail] : []
+  );
+  return r.rows;
+}
+
+/** Fetch any quote regardless of owner (admin only). */
+export async function getQuoteAny(number: number): Promise<QuoteRow | null> {
+  const r = await query<QuoteRow>("SELECT * FROM quotes WHERE number = $1", [number]);
+  return r.rows[0] || null;
+}
+
 /** All quotes for a reseller, newest first — powers My Quotes + Recent Quotes. */
 export async function listQuotes(resellerEmail: string): Promise<QuoteListRow[]> {
   const r = await query<QuoteListRow>(

@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { api, setToken, getToken, setUnauthorizedHandler } from "../api";
 import type { AuthUser } from "../types";
 
-interface JwtPayload { email?: string; company?: string; exp?: number }
+interface JwtPayload { email?: string; company?: string; role?: "admin" | "reseller"; exp?: number }
 
 /** Decode a JWT payload (no verification — just to read email/company/exp). */
 function decodeJwt(t: string | null): JwtPayload | null {
@@ -27,9 +27,10 @@ export const useSession = defineStore("session", () => {
   const valid = initial && !isExpired(initial);
 
   const user = ref<AuthUser | null>(
-    valid ? { email: initial!.email || "", company: initial!.company || "" } : null
+    valid ? { email: initial!.email || "", company: initial!.company || "", role: initial!.role } : null
   );
   const authed = ref(Boolean(getToken()) && !!valid);
+  const isAdmin = computed(() => user.value?.role === "admin");
   const error = ref("");
 
   let expiryTimer: number | undefined;
@@ -85,5 +86,5 @@ export const useSession = defineStore("session", () => {
   setUnauthorizedHandler(() => logout());
   scheduleExpiry();
 
-  return { user, authed, error, login, register, logout };
+  return { user, authed, isAdmin, error, login, register, logout };
 });
