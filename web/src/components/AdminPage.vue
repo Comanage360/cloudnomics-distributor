@@ -165,9 +165,10 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .tabs button.on { color: var(--ember); border-bottom-color: var(--ember); }
 .state { padding: 30px; text-align: center; color: var(--muted); }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
-.grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
-.grid td { padding: 10px; border-bottom: 1px solid var(--line); }
-.r { text-align: right; }
+.grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+.grid td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.grid th.r, .grid td.r { text-align: right; }
+.r { text-align: right; white-space: nowrap; }
 .mono { font-family: var(--mono); }
 .strong { font-weight: 700; }
 .muted { color: var(--muted); }

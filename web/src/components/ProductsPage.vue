@@ -96,6 +96,7 @@ h2 { font-family: var(--display); font-size: 14px; margin: 0 0 8px; color: var(-
 @media (max-width: 760px) { .page { padding: 16px; } .xdr { flex-direction: column; align-items: flex-start; gap: 8px; } }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
 .grid td { padding: 10px; border-bottom: 1px solid var(--line); }
+.grid th.r, .grid td.r { text-align: right; }
 .r { text-align: right; }
 .mono { font-family: var(--mono); }
 .sku { font-weight: 700; }
