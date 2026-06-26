@@ -1,5 +1,8 @@
 import express from "express";
 import cors from "cors";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { config } from "./config.js";
 import { migrate } from "./db.js";
 import { authRouter } from "./routes/auth.js";
@@ -24,6 +27,19 @@ app.use("/api/calendar", calendarRouter);
 app.use("/api/branding", brandingRouter);
 app.use("/api/rates", ratesRouter);
 app.use("/api/admin", adminRouter);
+
+// Single-service deploy (Cloud Run): if a built SPA is present, serve it from
+// the same origin as the API. Static assets are served directly; any other
+// non-/api path falls back to index.html for client-side routing. When no build
+// is present (local `npm run dev`, where Vite serves the SPA on :5173) this is
+// a no-op, so the dev split-origin setup is unaffected.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const webDist = process.env.WEB_DIST || join(__dirname, "..", "web-dist");
+if (existsSync(join(webDist, "index.html"))) {
+  app.use(express.static(webDist));
+  app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(join(webDist, "index.html")));
+  console.log(`[server] serving SPA from ${webDist}`);
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
