@@ -10,21 +10,15 @@ const INK = "#131A2B";
 const MUTED = "#5C6781";
 const LINE = "#E2E6EF";
 
-// The distributor (Cloudnomics) logo for partner quotes. PDFKit can't render the
-// SVG the SPA uses, so we embed the PNG. Loaded once; null if not found (then the
-// header falls back to "Cloudnomics" text). Candidates cover the dev tree, the
-// bundled server asset, and the deployed SPA dir.
+// The distributor (Cloudnomics) header logo for partner quotes. This is a PNG
+// raster of the SPA's header mark (cloudnomics-mark.svg) — PDFKit can't render
+// SVG. Loaded once; null if not found (header then falls back to text). Same
+// relative hop in dev (src/services) and prod (dist/services): two levels up to
+// the package root, where the bundled `assets/` lives.
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CN_LOGO: Buffer | null = (() => {
-  // Same relative hop in both layouts: src/services and dist/services both sit
-  // two levels under the package root, where the bundled `assets/` lives.
-  const candidates = [
-    join(__dir, "..", "..", "assets", "cloudnomics-logo.png"),
-    process.env.WEB_DIST ? join(process.env.WEB_DIST, "cloudnomics-logo.png") : "",
-  ].filter(Boolean);
-  for (const p of candidates) {
-    try { if (existsSync(p)) return readFileSync(p); } catch { /* try next */ }
-  }
+  const p = join(__dir, "..", "..", "assets", "cloudnomics-mark.png");
+  try { if (existsSync(p)) return readFileSync(p); } catch { /* fall back to text */ }
   return null;
 })();
 
