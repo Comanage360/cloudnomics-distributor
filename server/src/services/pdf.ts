@@ -1,4 +1,7 @@
 import PDFDocument from "pdfkit";
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import type { QuoteTotals } from "../types.js";
 
 const EMBER = "#FF5A36";
@@ -7,6 +10,24 @@ const INK = "#131A2B";
 const MUTED = "#5C6781";
 const LINE = "#E2E6EF";
 
+// The distributor (Cloudnomics) logo for partner quotes. PDFKit can't render the
+// SVG the SPA uses, so we embed the PNG. Loaded once; null if not found (then the
+// header falls back to "Cloudnomics" text). Candidates cover the dev tree, the
+// bundled server asset, and the deployed SPA dir.
+const __dir = dirname(fileURLToPath(import.meta.url));
+const CN_LOGO: Buffer | null = (() => {
+  // Same relative hop in both layouts: src/services and dist/services both sit
+  // two levels under the package root, where the bundled `assets/` lives.
+  const candidates = [
+    join(__dir, "..", "..", "assets", "cloudnomics-logo.png"),
+    process.env.WEB_DIST ? join(process.env.WEB_DIST, "cloudnomics-logo.png") : "",
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try { if (existsSync(p)) return readFileSync(p); } catch { /* try next */ }
+  }
+  return null;
+})();
+
 export interface QuotePdfInput {
   quoteNumber: number;
   totals: QuoteTotals;
@@ -14,15 +35,27 @@ export interface QuotePdfInput {
   customerEmail?: string;
   resellerCompany: string;
   logoBuffer?: Buffer | null;
+  // partner = Cloudnomics → reseller (base cost, no markup); customer = reseller → end customer (with markup).
+  variant?: "partner" | "customer";
 }
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtDate = (d: Date) => d.toLocaleDateString("en-US");
 
-/** Render the customer-facing "SALES QUOTE" PDF and resolve a Buffer. */
+/** Render the branded "SALES QUOTE" PDF (customer-facing by default) and resolve a Buffer. */
 export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
   const { quoteNumber, totals, customerName, customerEmail, resellerCompany, logoBuffer } = input;
-  const markupMult = 1 + totals.markup / 100;
+  const isPartner = input.variant === "partner";
+
+  // Brand / parties / pricing all switch on the quote direction (mirrors QuotePreview.vue).
+  // Partner quote = reseller cost (no markup), Cloudnomics-branded, billed to the reseller;
+  // customer quote = cost × markup, reseller-branded, billed to the end customer.
+  const markupMult = isPartner ? 1 : 1 + totals.markup / 100;
+  const billToName = isPartner ? resellerCompany : customerName;
+  const billToInfo = isPartner ? "" : customerEmail || "";
+  const preparedBy = isPartner ? "Cloudnomics" : resellerCompany;
+  const brandName = isPartner ? "Cloudnomics" : resellerCompany;
+  const directionLabel = isPartner ? "Distributor → Reseller" : "";
 
   // Customer-facing rows (list price, effective discount off list, amount).
   const rows = totals.items.map((it) => {
@@ -54,17 +87,26 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     const width = right - left;
 
     // ---- Header ----
-    // White-label: show the reseller's logo if they uploaded one; otherwise
-    // brand the quote as Cloudnomics (the distributor), not a derived name.
+    // Partner quote: always brand as Cloudnomics (the distributor) — embed the
+    // Cloudnomics logo. Customer quote: white-label with the reseller's uploaded
+    // logo. Either way, fall back to the brand name as text if no image renders.
     let logoOk = false;
-    if (logoBuffer) {
+    if (isPartner) {
+      if (CN_LOGO) {
+        try { doc.image(CN_LOGO, left, 48, { fit: [190, 54] }); logoOk = true; } catch { /* fall back to text */ }
+      }
+    } else if (logoBuffer) {
       try { doc.image(logoBuffer, left, 50, { fit: [200, 50] }); logoOk = true; } catch { /* fall back to text */ }
     }
     if (!logoOk) {
-      doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text("Cloudnomics", left, 52, { width: 260 });
+      doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text(brandName, left, 52, { width: 260 });
     }
 
     doc.font("Helvetica-Bold").fontSize(20).fillColor(EMBER).text("SALES QUOTE", left, 50, { width, align: "right" });
+    if (directionLabel) {
+      doc.font("Helvetica").fontSize(8).fillColor(MUTED)
+        .text(directionLabel.toUpperCase(), left, 72, { width, align: "right", characterSpacing: 0.6 });
+    }
 
     const meta: [string, string][] = [
       ["Quotation No.", String(quoteNumber)],
@@ -72,7 +114,7 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
       ["Valid Until", fmtDate(new Date(Date.now() + 30 * 864e5))],
       ["Type of Sale", "New Quote"],
     ];
-    let my = 78;
+    let my = directionLabel ? 88 : 78;
     for (const [k, v] of meta) {
       doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(k, left, my, { width: width - 120, align: "right" });
       doc.font("Helvetica-Bold").fontSize(9).fillColor(INK).text(v, left, my, { width, align: "right" });
@@ -91,8 +133,8 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
         .text(name, cx + 12, y + 24, { width: colW - 20 });
       if (info) doc.font("Helvetica").fontSize(8).fillColor(MUTED).text(info, cx + 12, y + (accent ? 42 : 40), { width: colW - 20 });
     };
-    cell(left, "BILL TO", customerName, customerEmail || "");
-    cell(left + colW, "PREPARED BY", resellerCompany, "via Cloudnomics Distributor Console");
+    cell(left, "BILL TO", billToName, billToInfo);
+    cell(left + colW, "PREPARED BY", preparedBy, "via Cloudnomics Distributor Console");
     cell(left + 2 * colW, "TOTAL", fmt(subtotal), "Taxes / shipping if applicable", true);
     for (let i = 1; i < 3; i++) doc.moveTo(left + i * colW, y).lineTo(left + i * colW, y + 56).lineWidth(1).strokeColor(LINE).stroke();
 
@@ -157,7 +199,7 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     const fy = doc.page.height - 88;
     doc.moveTo(left, fy).lineTo(right, fy).lineWidth(0.5).strokeColor(LINE).stroke();
     doc.font("Helvetica-Bold").fontSize(9).fillColor(INK)
-      .text(resellerCompany, left, fy + 9, { width: width / 2, lineBreak: false });
+      .text(preparedBy, left, fy + 9, { width: width / 2, lineBreak: false });
     doc.font("Helvetica").fontSize(8).fillColor(MUTED)
       .text("Prepared via the Cloudnomics Distributor Console", left, fy + 22, { width: width / 2, lineBreak: false });
     doc.font("Helvetica").fontSize(7.5).fillColor(MUTED).text(

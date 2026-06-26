@@ -25,9 +25,9 @@ const fmtDate = (s: string) => {
   return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US");
 };
 
-async function openPdf(n: number) {
+async function openPdf(n: number, variant: "partner" | "customer" = "customer") {
   try {
-    const url = await api.quotePdf(n);
+    const url = await api.quotePdf(n, variant);
     window.open(url, "_blank");
   } catch (e) {
     emit("toast", `Could not open PDF: ${(e as Error).message}`);
@@ -63,7 +63,8 @@ async function openPdf(n: number) {
           <th class="r">Customer total</th>
           <th>Status</th>
           <th>Date</th>
-          <th class="r">PDF</th>
+          <th class="r">Customer PDF</th>
+          <th class="r">Partner PDF</th>
         </tr>
       </thead>
       <tbody>
@@ -79,7 +80,8 @@ async function openPdf(n: number) {
           <td class="r mono strong">{{ money(Math.round(Number(q.customer_total))) }}</td>
           <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
           <td class="muted">{{ fmtDate(q.created_at) }}</td>
-          <td class="r"><button class="link" @click="openPdf(q.number)">Open ↗</button></td>
+          <td class="r"><button class="link" @click="openPdf(q.number, 'customer')">Open ↗</button></td>
+          <td class="r"><button class="link" @click="openPdf(q.number, 'partner')">Open ↗</button></td>
         </tr>
       </tbody>
     </table>

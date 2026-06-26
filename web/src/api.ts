@@ -90,9 +90,10 @@ export const api = {
       body: JSON.stringify({ customerName, customerEmail }),
     }),
 
-  // PDF as a blob (auth header needs to be attached, so we fetch then objectURL)
-  async quotePdf(number: number): Promise<string> {
-    const res = await fetch(`${BASE}/api/quotes/${number}/pdf`, {
+  // PDF as a blob (auth header needs to be attached, so we fetch then objectURL).
+  // variant "partner" = Cloudnomics→reseller base-cost quote; default = customer quote.
+  async quotePdf(number: number, variant: "partner" | "customer" = "customer"): Promise<string> {
+    const res = await fetch(`${BASE}/api/quotes/${number}/pdf?variant=${variant}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Could not load PDF");
@@ -108,8 +109,8 @@ export const api = {
   adminRates: () => req<Rates>("/api/admin/rates"),
   adminSaveRates: (rates: Partial<Rates>) =>
     req<Rates>("/api/admin/rates", { method: "PUT", body: JSON.stringify(rates) }),
-  async adminQuotePdf(number: number): Promise<string> {
-    const res = await fetch(`${BASE}/api/admin/quotes/${number}/pdf`, {
+  async adminQuotePdf(number: number, variant: "partner" | "customer" = "customer"): Promise<string> {
+    const res = await fetch(`${BASE}/api/admin/quotes/${number}/pdf?variant=${variant}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Could not load PDF");

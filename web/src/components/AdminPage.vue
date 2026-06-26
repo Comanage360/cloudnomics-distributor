@@ -76,7 +76,7 @@ async function openReseller(email: string) {
   drill.value = email;
   try { quotes.value = await api.adminQuotes(email); } catch (e) { emit("toast", (e as Error).message); }
 }
-async function openPdf(n: number) { try { window.open(await api.adminQuotePdf(n), "_blank"); } catch (e) { emit("toast", (e as Error).message); } }
+async function openPdf(n: number, variant: "partner" | "customer" = "customer") { try { window.open(await api.adminQuotePdf(n, variant), "_blank"); } catch (e) { emit("toast", (e as Error).message); } }
 async function saveRates() {
   if (!rates.value) return;
   savingRates.value = true;
@@ -176,7 +176,8 @@ const rateFields: { key: keyof Rates; label: string }[] = [
             <th class="r sortable" @click="sort('customer_total')">Customer total{{ arrow('customer_total') }}</th>
             <th class="sortable" @click="sort('status')">Status{{ arrow('status') }}</th>
             <th class="sortable" @click="sort('created_at')">Date{{ arrow('created_at') }}</th>
-            <th class="r">PDF</th>
+            <th class="r">Customer PDF</th>
+            <th class="r">Partner PDF</th>
           </tr></thead>
           <tbody>
             <tr v-for="q in fQuotes" :key="q.number">
@@ -187,9 +188,10 @@ const rateFields: { key: keyof Rates; label: string }[] = [
               <td class="r mono strong">{{ usd(q.customer_total) }}</td>
               <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
               <td class="muted">{{ fmtDate(q.created_at) }}</td>
-              <td class="r"><button class="link" @click="openPdf(q.number)">Open ↗</button></td>
+              <td class="r"><button class="link" @click="openPdf(q.number, 'customer')">Open ↗</button></td>
+              <td class="r"><button class="link" @click="openPdf(q.number, 'partner')">Open ↗</button></td>
             </tr>
-            <tr v-if="!fQuotes.length"><td colspan="8" class="muted">No quotes match.</td></tr>
+            <tr v-if="!fQuotes.length"><td colspan="9" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
       </template>

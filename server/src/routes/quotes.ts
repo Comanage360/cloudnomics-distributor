@@ -66,12 +66,14 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
   res.json({ number, ...totals });
 });
 
-/** Stream the branded customer PDF. */
+/** Stream the branded PDF. `?variant=partner` renders the Cloudnomics→reseller
+ *  (base-cost, no-markup) quote; default is the customer-facing quote. */
 quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
   const number = Number(req.params.number);
   const quote = await getQuote(number, req.user!.email);
   if (!quote) return res.status(404).json({ error: "Quote not found" });
 
+  const variant = req.query.variant === "partner" ? "partner" : "customer";
   const pricelist = await loadPricelist();
   // Rebuild totals deterministically from the stored selection (source of truth)
   const totals = buildQuote(quote.selection, pricelist, await getRates());
@@ -83,10 +85,11 @@ quotesRouter.get("/:number/pdf", requireAuth, async (req, res) => {
     customerEmail: quote.customer_email || "",
     resellerCompany: (await getReseller(req.user!.email))?.company || req.user!.company,
     logoBuffer: logoToBuffer(quote.logo),
+    variant,
   });
 
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `inline; filename="quote-${number}.pdf"`);
+  res.setHeader("Content-Disposition", `inline; filename="quote-${number}-${variant}.pdf"`);
   res.send(pdf);
 });
 
