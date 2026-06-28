@@ -2,10 +2,13 @@ import { defineStore } from "pinia";
 import { ref, computed, reactive } from "vue";
 import { api } from "../api";
 import { computeTotals, DEFAULT_RATES, type Selection } from "../pricing";
-import type { ChatMessage, Firewall, Pricelist, Rates, Step } from "../types";
+import type { ChatMessage, ChatStatePatch, Firewall, Pricelist, Rates, Step } from "../types";
 
 let mid = 0;
 const nextId = () => ++mid;
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+const newSessionId = () =>
+  (globalThis.crypto?.randomUUID?.() ?? `s_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
 export const useQuote = defineStore("quote", () => {
   const pricelist = ref<Pricelist | null>(null);
@@ -21,6 +24,8 @@ export const useQuote = defineStore("quote", () => {
   const customer = reactive({ name: "", email: "" });
   const quoteNumber = ref<number | null>(null);
   const sent = ref(false);
+  // Groups all AI turns of one quoting session (for "Sessions" usage reporting).
+  const sessionId = ref(newSessionId());
 
   const totals = computed(() => computeTotals(sel, pricelist.value, rates.value));
 
@@ -28,15 +33,8 @@ export const useQuote = defineStore("quote", () => {
   function addUser(text: string) {
     messages.value.push({ id: nextId(), role: "user", text });
   }
-  function addClaude(text: string, card?: ChatMessage["card"], delay = 550): Promise<void> {
-    return new Promise((resolve) => {
-      thinking.value = true;
-      window.setTimeout(() => {
-        thinking.value = false;
-        messages.value.push({ id: nextId(), role: "claude", text, card });
-        resolve();
-      }, delay);
-    });
+  function addClaude(text: string, card?: ChatMessage["card"]) {
+    messages.value.push({ id: nextId(), role: "claude", text, card });
   }
 
   async function init() {
@@ -53,149 +51,93 @@ export const useQuote = defineStore("quote", () => {
     sel.competitiveModel = "";
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
-    messages.value.push({
-      id: nextId(), role: "claude",
-      text: 'Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.',
-    });
+    sessionId.value = newSessionId(); // a fresh session each new quote
+    addClaude('Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.');
   }
 
-  // ---- flow actions ----
-  async function submitIntake(requirement: string) {
-    if (!requirement.trim() || step.value !== "intake") return;
-    addUser(requirement);
-    thinking.value = true;
-    let rec;
-    try {
-      rec = await api.recommend(requirement);
-    } catch {
-      rec = null;
+  /** Current selection as the flat state the advisor reads/patches. */
+  function snapshot(): ChatStatePatch {
+    return {
+      sku: sel.firewall?.sku,
+      users: sel.users,
+      fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl, managed: sel.managed,
+      competitiveModel: sel.competitiveModel || undefined,
+      markup: sel.markup,
+      customerName: customer.name || undefined,
+      customerEmail: customer.email || undefined,
+    };
+  }
+
+  /** Apply a validated patch from the advisor onto local state. */
+  function applyPatch(patch: ChatStatePatch): boolean {
+    let pickedFw = false;
+    if (patch.sku) {
+      const fw = pricelist.value?.firewalls.find((f) => f.sku === patch.sku);
+      if (fw) { sel.firewall = fw; pickedFw = true; }
     }
-    thinking.value = false;
-    // On API success pick the recommended SKU; otherwise default to a priceable
-    // PA-Series hardware firewall sized to the user count (never on-request CN).
-    const priceablePa = (f: Firewall) => f.series === "PA-Series" && f.list != null;
-    const fw: Firewall | undefined = rec
-      ? pricelist.value?.firewalls.find((f) => f.sku === rec!.sku)
-      : pricelist.value?.firewalls.find((f) => priceablePa(f) && sel.users <= f.maxUsers);
-    const picked =
-      fw ||
-      pricelist.value?.firewalls.find(priceablePa) ||
-      pricelist.value?.firewalls.find((f) => f.list != null) ||
-      null;
-    if (picked) sel.firewall = picked;
-    if (rec) sel.users = rec.users;
-
-    messages.value.push({
-      id: nextId(), role: "claude",
-      text: rec?.message || `Recommended ${picked?.sku} for your requirement.`,
-      card: picked ? { firewall: picked, users: sel.users } : undefined,
-    });
-    await addClaude("Are you upgrading from a competitive firewall (e.g. Fortinet)? Enter the model for an extra 10% partner discount — or skip if it's a new deal (opportunity).", undefined, 650);
-    step.value = "competitive";
+    if (typeof patch.users === "number") sel.users = patch.users;
+    if (typeof patch.fwImpl === "boolean") sel.fwImpl = patch.fwImpl;
+    if (typeof patch.xdr === "boolean") sel.xdr = patch.xdr;
+    if (typeof patch.xdrImpl === "boolean") sel.xdrImpl = patch.xdrImpl;
+    if (typeof patch.managed === "boolean") sel.managed = patch.managed;
+    if (typeof patch.competitiveModel === "string") sel.competitiveModel = patch.competitiveModel;
+    if (typeof patch.markup === "number") sel.markup = patch.markup;
+    if (typeof patch.customerName === "string") customer.name = patch.customerName;
+    if (typeof patch.customerEmail === "string") customer.email = patch.customerEmail;
+    return pickedFw;
   }
 
-  async function applyCompetitive(model: string) {
-    const m = model.trim();
-    if (!m) return;
-    sel.competitiveModel = m;
-    addUser(`Upgrading from ${m}`);
-    await addClaude(`Great — a 10% competitive-upgrade discount is applied, taking your partner discount to 40%. Now confirm the firewall, or switch between hardware and virtual.`);
-    step.value = "selectFw";
-  }
-
-  async function skipCompetitive() {
-    sel.competitiveModel = "";
-    addUser("New deal — not a competitive upgrade");
-    await addClaude("No problem. Confirm the firewall, or switch between hardware and virtual.");
-    step.value = "selectFw";
-  }
-
-  /** Re-pick the smallest priceable firewall of a series for the current users. */
-  function setType(type: "hardware" | "virtual") {
-    const series = type === "virtual" ? "VM-Series" : "PA-Series";
-    const pool = (pricelist.value?.firewalls ?? []).filter((f) => f.series === series && f.list != null);
-    if (!pool.length) return;
-    sel.firewall = pool.find((f) => sel.users <= f.maxUsers) || pool[pool.length - 1];
-  }
-
-  function setFirewall(sku: string) {
-    const fw = pricelist.value?.firewalls.find((f) => f.sku === sku);
-    if (fw) sel.firewall = fw;
-  }
-
-  async function confirmFirewall() {
-    if (!sel.firewall) return;
-    addUser(`Use ${sel.firewall.sku}`);
-    if (sel.firewall.unit === "on_request") {
-      // CN-Series has no price — implementation (15% of hardware) doesn't apply.
-      sel.fwImpl = false;
-      await addClaude(`The ${sel.firewall.sku} is quoted on request, so I'll mark it "contact for pricing". Most ${sel.users}-user sites add Cortex XDR for endpoint protection. Add Cortex XDR Pro for ${sel.users} users?`);
-      step.value = "xdr";
-      return;
-    }
-    await addClaude(`Want me to add professional implementation for the ${sel.firewall.sku}? Our team handles setup and configuration — priced at 15% of the hardware.`, undefined, 650);
-    step.value = "fwImpl";
-  }
-
-  async function answerFwImpl(yes: boolean) {
-    addUser(yes ? "Yes, add implementation" : "No, skip implementation");
-    sel.fwImpl = yes;
-    await addClaude(`Most ${sel.users}-user offices pair the firewall with Cortex XDR for endpoint protection. Add Cortex XDR Pro for ${sel.users} users?`);
-    step.value = "xdr";
-  }
-
-  async function answerXdr(yes: boolean) {
-    addUser(yes ? `Yes, add XDR for ${sel.users} users` : "No XDR for now");
-    sel.xdr = yes;
-    if (yes) {
-      await addClaude("Add implementation for the XDR rollout too? (15% of the XDR subscription.)");
-      step.value = "xdrImpl";
-    } else {
-      await addClaude("Would you like a Cloudnomics Managed Service? We monitor and maintain it for you — adds 15% of the subtotal.");
-      step.value = "managed";
-    }
-  }
-
-  async function answerXdrImpl(yes: boolean) {
-    addUser(yes ? "Yes, add XDR implementation" : "No XDR implementation");
-    sel.xdrImpl = yes;
-    await addClaude("Would you like a Cloudnomics Managed Service? We monitor and maintain it for you — adds 15% of the subtotal.");
-    step.value = "managed";
-  }
-
-  async function answerManaged(yes: boolean) {
-    addUser(yes ? "Yes, add managed service" : "No managed service");
-    sel.managed = yes;
-    await addClaude("Your quote is ready on the right. Would you like to add a markup for your customer? Set your margin and I'll show both your cost and the customer price.", undefined, 650);
-    step.value = "markup";
-  }
-
-  async function applyMarkup(pct: number) {
-    sel.markup = pct;
-    addUser(pct > 0 ? `Apply a ${pct}% markup` : "Sell at cost — no markup");
-    await addClaude("Last step — tell me who this quote is going to. It'll be branded with your saved logo (set it under My branding).");
-    step.value = "whitelabel";
-  }
-
-  async function continueWhitelabel() {
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim());
-    if (!customer.name.trim() || !emailOk) return;
-    addUser(`Customer: ${customer.name} (${customer.email})`);
-    // finalize on the server (authoritative recompute + persistence)
+  /** Persist the quote on the server (authoritative recompute) once built. */
+  async function finalize() {
+    if (quoteNumber.value || !sel.firewall || !customer.name.trim() || !emailOk(customer.email)) return;
     try {
       const result = await api.createQuote({
-        sku: sel.firewall?.sku, users: sel.users,
+        sku: sel.firewall.sku, users: sel.users,
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
         competitiveModel: sel.competitiveModel,
         customerName: customer.name, customerEmail: customer.email,
       });
       quoteNumber.value = result.number;
-    } catch { /* keep going with local preview if save fails */ }
-    await addClaude(`All set${quoteNumber.value ? ` — quote #${quoteNumber.value}` : ""}. I'll send the branded quote to ${customer.name}. Want a follow-up reminder in your calendar in 3 days?`);
-    step.value = "send";
+    } catch { /* keep the local preview if save fails */ }
   }
 
+  /** The single conversation entry point: every user action flows through here. */
+  async function sendMessage(text: string) {
+    const t = text.trim();
+    if (!t || thinking.value || step.value === "done") return;
+    addUser(t);
+    thinking.value = true;
+    try {
+      const history = messages.value.map((m) => ({
+        role: (m.role === "claude" ? "assistant" : "user") as "assistant" | "user",
+        text: m.text,
+      }));
+      const res = await api.chat({ messages: history, state: snapshot(), sessionId: sessionId.value });
+      const pickedFw = applyPatch(res.patch || {});
+      step.value = res.step;
+      addClaude(res.reply, pickedFw && sel.firewall ? { firewall: sel.firewall, users: sel.users } : undefined);
+      if (res.done || res.step === "send") await finalize();
+    } catch {
+      addClaude("Sorry — I had trouble there. Could you say that again?");
+    } finally {
+      thinking.value = false;
+    }
+  }
+
+  // ---- local-only preview helpers for the firewall picker (selectFw step) ----
+  function setType(type: "hardware" | "virtual") {
+    const series = type === "virtual" ? "VM-Series" : "PA-Series";
+    const pool = (pricelist.value?.firewalls ?? []).filter((f) => f.series === series && f.list != null);
+    if (!pool.length) return;
+    sel.firewall = pool.find((f) => sel.users <= f.maxUsers) || pool[pool.length - 1];
+  }
+  function setFirewall(sku: string) {
+    const fw = pricelist.value?.firewalls.find((f) => f.sku === sku);
+    if (fw) sel.firewall = fw;
+  }
+
+  /** Email the finalized quote to the customer. */
   async function send() {
     addUser("Send the quote");
     let dry = true;
@@ -206,18 +148,12 @@ export const useQuote = defineStore("quote", () => {
       }
     } catch { /* show optimistic confirmation */ }
     sent.value = true;
-    messages.value.push({
-      id: nextId(), role: "claude",
-      text: `Quote sent to ${customer.email} ✓${dry ? "  (dev dry-run — configure SMTP to deliver for real)" : ""}`,
-    });
+    addClaude(`Quote sent to ${customer.email} ✓${dry ? "  (dev dry-run — configure SMTP to deliver for real)" : ""}`);
     step.value = "done";
   }
 
   return {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
-    init, reset, submitIntake, applyCompetitive, skipCompetitive,
-    setType, setFirewall, confirmFirewall,
-    answerFwImpl, answerXdr, answerXdrImpl,
-    answerManaged, applyMarkup, continueWhitelabel, send,
+    init, reset, sendMessage, setType, setFirewall, send,
   };
 });

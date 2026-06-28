@@ -204,6 +204,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
         <div class="cards">
           <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
           <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usage.overall.calls }}</div></div>
+          <div class="card"><div class="cl">Sessions</div><div class="cv">{{ usage.overall.sessions }}</div></div>
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
         </div>
@@ -215,6 +216,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
           <thead><tr>
             <th class="sortable" @click="sort('reseller_email')">Reseller{{ arrow('reseller_email') }}</th>
             <th class="r sortable" @click="sort('calls')">Quotes{{ arrow('calls') }}</th>
+            <th class="r sortable" @click="sort('sessions')">Sessions{{ arrow('sessions') }}</th>
             <th class="r sortable" @click="sort('input_tokens')">Input{{ arrow('input_tokens') }}</th>
             <th class="r sortable" @click="sort('output_tokens')">Output{{ arrow('output_tokens') }}</th>
             <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
@@ -223,11 +225,12 @@ const rateFields: { key: keyof Rates; label: string }[] = [
             <tr v-for="u in fUsage" :key="u.reseller_email">
               <td>{{ u.reseller_email }}</td>
               <td class="r mono">{{ u.calls }}</td>
+              <td class="r mono">{{ u.sessions }}</td>
               <td class="r mono">{{ Number(u.input_tokens).toLocaleString() }}</td>
               <td class="r mono">{{ Number(u.output_tokens).toLocaleString() }}</td>
               <td class="r mono strong">{{ cost4(u.cost_usd) }}</td>
             </tr>
-            <tr v-if="!fUsage.length"><td colspan="5" class="muted">No usage recorded yet.</td></tr>
+            <tr v-if="!fUsage.length"><td colspan="6" class="muted">No usage recorded yet.</td></tr>
           </tbody>
         </table>
       </template>

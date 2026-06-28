@@ -1,4 +1,4 @@
-import type { AdminQuote, AdminReseller, AuthUser, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, UsageReport } from "./types";
+import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, Step, UsageReport } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -57,6 +57,14 @@ export const api = {
     req<Recommendation>("/api/recommend", {
       method: "POST",
       body: JSON.stringify({ requirement }),
+    }),
+
+  // One AI advisor turn: send the conversation + current selection state, get
+  // back the next reply, a validated state patch, the step, and a done flag.
+  chat: (payload: { messages: { role: "user" | "assistant"; text: string }[]; state: ChatStatePatch; sessionId: string }) =>
+    req<{ reply: string; patch: ChatStatePatch; step: Step; done: boolean }>("/api/chat", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   nextNumber: () => req<{ number: number }>("/api/quotes/next-number"),

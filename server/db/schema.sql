@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Groups all AI turns of one quoting session (incl. abandoned ones) for "Sessions" reporting.
+ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS session_id TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_ai_usage_reseller ON ai_usage(reseller_email);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_session ON ai_usage(session_id);
 CREATE INDEX IF NOT EXISTS idx_products_series ON products(series, max_users);
 CREATE INDEX IF NOT EXISTS idx_quote_items_number ON quote_items(quote_number);
