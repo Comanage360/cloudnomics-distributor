@@ -54,6 +54,20 @@ export type Step =
   | "intake" | "competitive" | "selectFw" | "fwImpl" | "xdr" | "xdrImpl"
   | "managed" | "markup" | "whitelabel" | "send" | "done";
 
+/** Fields the AI advisor can set on the selection/customer as it guides a session. */
+export interface ChatStatePatch {
+  sku?: string;
+  users?: number;
+  fwImpl?: boolean;
+  xdr?: boolean;
+  xdrImpl?: boolean;
+  managed?: boolean;
+  competitiveModel?: string;
+  markup?: number;
+  customerName?: string;
+  customerEmail?: string;
+}
+
 export interface AuthUser {
   email: string;
   company: string;
@@ -71,14 +85,15 @@ export interface AdminReseller {
 
 export interface UsageRow {
   reseller_email: string;
-  calls: number;
+  calls: number;    // completed quotes
+  sessions: number; // AI sessions started (incl. abandoned)
   input_tokens: string;
   output_tokens: string;
   cost_usd: string;
 }
 
 export interface UsageReport {
-  overall: { calls: number; input_tokens: string; output_tokens: string; cost_usd: string };
+  overall: { calls: number; sessions: number; input_tokens: string; output_tokens: string; cost_usd: string };
   byReseller: UsageRow[];
 }
 

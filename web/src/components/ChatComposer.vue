@@ -6,7 +6,6 @@ import CalendarBlock from "./CalendarBlock.vue";
 
 const q = useQuote();
 const draft = ref("");
-const competitorDraft = ref("");
 const markupSlider = ref(q.rates.markupDefault);
 watch(() => q.rates.markupDefault, (d) => { markupSlider.value = d; });
 
@@ -26,106 +25,70 @@ function modelLabel(f: { sku: string; maxUsers: number; list: number | null }) {
   return `${f.sku} · up to ${f.maxUsers} users · ${price}`;
 }
 
-function applyComp() {
-  if (competitorDraft.value.trim()) q.applyCompetitive(competitorDraft.value);
-}
-
 // white-label step: require a name and a valid customer email before continuing.
 const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.customer.email.trim()));
 const canContinue = computed(() => q.customer.name.trim().length > 0 && emailOk.value);
 
-function intake() {
+// Step-specific quick replies — each sends natural-language text the AI interprets.
+const quickOpts = computed<{ label: string; send: string }[]>(() => {
+  switch (q.step) {
+    case "competitive":
+      return [{ label: "Not upgrading", send: "This is a new deal, not a competitive upgrade." }];
+    case "fwImpl":
+      return [
+        { label: "Add implementation", send: "Yes, add professional implementation." },
+        { label: "Skip", send: "No implementation, thanks." },
+      ];
+    case "xdr":
+      return [
+        { label: `Add XDR for ${q.sel.users} users`, send: `Yes, add Cortex XDR Pro for ${q.sel.users} users.` },
+        { label: "No XDR", send: "No Cortex XDR for now." },
+      ];
+    case "xdrImpl":
+      return [
+        { label: "Add XDR implementation", send: "Yes, add XDR implementation." },
+        { label: "Skip", send: "No XDR implementation." },
+      ];
+    case "managed":
+      return [
+        { label: "Add managed service", send: "Yes, add the Cloudnomics managed service." },
+        { label: "Skip", send: "No managed service." },
+      ];
+    default:
+      return [];
+  }
+});
+
+const placeholder = computed(() =>
+  q.step === "intake"
+    ? "Describe the deal — e.g. 200-user office, or the model you're replacing"
+    : q.step === "competitive"
+    ? "Enter the firewall you're replacing — e.g. FortiGate 100F"
+    : "Type a reply…"
+);
+
+function sendDraft() {
   const v = draft.value;
+  if (!v.trim()) return;
   draft.value = "";
-  q.submitIntake(v);
+  q.sendMessage(v);
+}
+function confirmFw() {
+  if (q.sel.firewall) q.sendMessage(`Use the ${q.sel.firewall.sku}.`);
+}
+function applyMarkup() {
+  q.sendMessage(markupSlider.value > 0 ? `Apply a ${markupSlider.value}% markup.` : "Sell at cost — no markup.");
+}
+function submitCustomer() {
+  if (canContinue.value) q.sendMessage(`The customer is ${q.customer.name} (${q.customer.email}).`);
 }
 </script>
 
 <template>
   <div class="composer">
     <div class="inner">
-      <!-- intake -->
-      <div v-if="q.step === 'intake'" class="line">
-        <input v-model="draft" class="input" placeholder="Describe the deal — e.g. 200-user office, or the model you're replacing" @keyup.enter="intake" />
-        <button class="btn-primary" @click="intake">Send</button>
-      </div>
-
-      <!-- competitive upgrade: optional model being migrated from (+10% discount) -->
-      <div v-else-if="q.step === 'competitive'">
-        <input v-model="competitorDraft" class="input" placeholder="Current firewall model — e.g. FortiGate 100F" @keyup.enter="applyComp" />
-        <div class="line top">
-          <button class="btn-primary grow" :disabled="!competitorDraft.trim()" @click="applyComp">Apply 10% upgrade discount</button>
-          <button class="btn-outline grow" @click="q.skipCompetitive()">Not upgrading</button>
-        </div>
-      </div>
-
-      <!-- choose firewall: hardware vs virtual + model -->
-      <div v-else-if="q.step === 'selectFw'">
-        <div class="seg">
-          <button class="seg-btn" :class="{ on: fwType === 'hardware' }" @click="q.setType('hardware')">Hardware</button>
-          <button class="seg-btn" :class="{ on: fwType === 'virtual' }" @click="q.setType('virtual')">Virtual</button>
-        </div>
-        <select
-          class="input top"
-          :value="q.sel.firewall?.sku"
-          @change="q.setFirewall(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="f in modelOptions" :key="f.sku" :value="f.sku">{{ modelLabel(f) }}</option>
-        </select>
-        <button class="btn-primary full top" :disabled="!q.sel.firewall" @click="q.confirmFirewall()">
-          Use {{ q.sel.firewall?.sku || "this model" }}
-        </button>
-      </div>
-
-      <!-- yes / no steps -->
-      <div v-else-if="q.step === 'fwImpl'" class="line">
-        <button class="btn-primary grow" @click="q.answerFwImpl(true)">Add implementation</button>
-        <button class="btn-outline grow" @click="q.answerFwImpl(false)">Skip</button>
-      </div>
-      <div v-else-if="q.step === 'xdr'" class="line">
-        <button class="btn-primary grow" @click="q.answerXdr(true)">Add XDR for {{ q.sel.users }} users</button>
-        <button class="btn-outline grow" @click="q.answerXdr(false)">No XDR</button>
-      </div>
-      <div v-else-if="q.step === 'xdrImpl'" class="line">
-        <button class="btn-primary grow" @click="q.answerXdrImpl(true)">Add XDR implementation</button>
-        <button class="btn-outline grow" @click="q.answerXdrImpl(false)">Skip</button>
-      </div>
-      <div v-else-if="q.step === 'managed'" class="line">
-        <button class="btn-primary grow" @click="q.answerManaged(true)">Add managed service</button>
-        <button class="btn-outline grow" @click="q.answerManaged(false)">Skip</button>
-      </div>
-
-      <!-- markup -->
-      <div v-else-if="q.step === 'markup'">
-        <div class="markup-head">
-          <span>Your margin</span>
-          <span class="markup-val">{{ markupSlider }}%</span>
-        </div>
-        <input type="range" :min="q.rates.markupMin" :max="q.rates.markupMax" v-model.number="markupSlider" class="range" />
-        <div class="line top">
-          <button class="btn-primary full" @click="q.applyMarkup(markupSlider)">Apply {{ markupSlider }}% markup</button>
-        </div>
-      </div>
-
-      <!-- white-label -->
-      <div v-else-if="q.step === 'whitelabel'">
-        <div class="line top">
-          <input v-model="q.customer.name" class="input" placeholder="Customer name" />
-          <input
-            v-model="q.customer.email"
-            type="email"
-            class="input"
-            :class="{ invalid: q.customer.email && !emailOk }"
-            placeholder="Customer email"
-            @keyup.enter="canContinue && q.continueWhitelabel()"
-          />
-        </div>
-        <p v-if="q.customer.email && !emailOk" class="hint-err">Enter a valid email address.</p>
-        <button class="btn-primary full top" :disabled="!canContinue" @click="q.continueWhitelabel()">Continue</button>
-      </div>
-
       <!-- send + calendar -->
-      <div v-else-if="q.step === 'send' || q.step === 'done'">
+      <div v-if="q.step === 'send' || q.step === 'done'">
         <button v-if="!q.sent" class="btn-primary full" @click="q.send()">
           Send branded quote to {{ q.customer.name || "customer" }}
         </button>
@@ -133,6 +96,52 @@ function intake() {
         <CalendarBlock class="top" />
         <button v-if="q.step === 'done'" class="btn-ghost top" @click="q.reset()">↺ Start a new quote</button>
       </div>
+
+      <template v-else>
+        <!-- firewall picker -->
+        <div v-if="q.step === 'selectFw'" class="quick">
+          <div class="seg">
+            <button class="seg-btn" :class="{ on: fwType === 'hardware' }" @click="q.setType('hardware')">Hardware</button>
+            <button class="seg-btn" :class="{ on: fwType === 'virtual' }" @click="q.setType('virtual')">Virtual</button>
+          </div>
+          <select class="input top" :value="q.sel.firewall?.sku" @change="q.setFirewall(($event.target as HTMLSelectElement).value)">
+            <option v-for="f in modelOptions" :key="f.sku" :value="f.sku">{{ modelLabel(f) }}</option>
+          </select>
+          <button class="btn-primary full top" :disabled="!q.sel.firewall || q.thinking" @click="confirmFw">
+            Use {{ q.sel.firewall?.sku || "this model" }}
+          </button>
+        </div>
+
+        <!-- markup slider -->
+        <div v-else-if="q.step === 'markup'" class="quick">
+          <div class="markup-head"><span>Your margin</span><span class="markup-val">{{ markupSlider }}%</span></div>
+          <input type="range" :min="q.rates.markupMin" :max="q.rates.markupMax" v-model.number="markupSlider" class="range" />
+          <button class="btn-primary full top" :disabled="q.thinking" @click="applyMarkup">Apply {{ markupSlider }}% markup</button>
+        </div>
+
+        <!-- customer details -->
+        <div v-else-if="q.step === 'whitelabel'" class="quick">
+          <div class="line">
+            <input v-model="q.customer.name" class="input" placeholder="Customer name" />
+            <input v-model="q.customer.email" type="email" class="input" :class="{ invalid: q.customer.email && !emailOk }" placeholder="Customer email" @keyup.enter="submitCustomer" />
+          </div>
+          <p v-if="q.customer.email && !emailOk" class="hint-err">Enter a valid email address.</p>
+          <button class="btn-primary full top" :disabled="!canContinue || q.thinking" @click="submitCustomer">Continue</button>
+        </div>
+
+        <!-- yes/no quick replies -->
+        <div v-else-if="quickOpts.length" class="quick line">
+          <button v-for="opt in quickOpts" :key="opt.label" class="btn-outline grow" :disabled="q.thinking" @click="q.sendMessage(opt.send)">
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <!-- always-available free text (AI-interpreted) -->
+        <div class="line top">
+          <input v-model="draft" class="input" :placeholder="placeholder" :disabled="q.thinking" @keyup.enter="sendDraft" />
+          <button class="btn-primary" :disabled="q.thinking || !draft.trim()" @click="sendDraft">Send</button>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -141,8 +150,8 @@ function intake() {
 .composer { padding: 12px 22px 18px; border-top: 1px solid var(--line); background: var(--surface); }
 .inner { max-width: 640px; margin: 0 auto; }
 .line { display: flex; gap: 8px; }
-.line.wrap { flex-wrap: wrap; align-items: center; }
 .line.top, .top { margin-top: 12px; }
+.quick + .line.top { margin-top: 12px; }
 .grow { flex: 1; }
 .full { width: 100%; }
 .markup-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
@@ -154,7 +163,5 @@ function intake() {
 select.input { width: 100%; }
 .hint-err { margin: 8px 2px 0; font-size: 12px; color: var(--ember); }
 .input.invalid { border-color: var(--ember); }
-.file { cursor: pointer; }
-.logo { height: 36px; max-width: 120px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
 .sent { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }
 </style>
