@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useSession } from "../stores/session";
 import { useQuote } from "../stores/quote";
 import { useBranding } from "../stores/branding";
@@ -24,7 +24,18 @@ const branding = useBranding();
 const view = ref<PortalView>("assistant");
 const previewMode = ref<"partner" | "customer" | null>(null);
 const navOpen = ref(false); // mobile sidebar drawer
+const menuOpen = ref(false); // account avatar dropdown
 const scroller = ref<HTMLElement | null>(null);
+
+// Avatar initials from company (preferred) or email.
+const initials = computed(() => {
+  const company = session.user?.company || branding.company || "";
+  if (company.trim()) {
+    const parts = company.trim().split(/\s+/);
+    return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase();
+  }
+  return (session.user?.email?.[0] || "?").toUpperCase();
+});
 const recent = ref<QuoteSummary[]>([]);
 
 // toast
@@ -88,9 +99,19 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
       </div>
       <div class="account">
         <span class="badge"><Icon name="building" :size="12" /> {{ session.user?.company || branding.company || 'Reseller' }}</span>
-        <span class="email">{{ session.user?.email }}</span>
-        <button class="btn-ghost" @click="session.logout()">Sign out</button>
+        <div class="avatar-wrap">
+          <button class="avatar" :class="{ on: menuOpen }" aria-label="Account menu" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">{{ initials }}</button>
+          <div v-if="menuOpen" class="menu">
+            <div class="menu-head">
+              <div class="menu-name">{{ session.user?.company || branding.company || 'Reseller' }}</div>
+              <div class="menu-email">{{ session.user?.email }}</div>
+            </div>
+            <button class="menu-item" @click="menuOpen = false; navigate('branding')"><Icon name="branding" :size="14" /> My branding</button>
+            <button class="menu-item danger" @click="menuOpen = false; session.logout()">Sign out</button>
+          </div>
+        </div>
       </div>
+      <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
     </header>
 
     <div class="body">
@@ -175,6 +196,20 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
 .email { font-size: 12.5px; }
 .hamburger { display: none; background: none; border: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--ink); padding: 2px 6px 2px 0; }
 .backdrop { display: none; }
+
+/* Account avatar + dropdown */
+.avatar-wrap { position: relative; flex-shrink: 0; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; background: var(--ember); color: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; display: inline-flex; align-items: center; justify-content: center; transition: box-shadow .15s ease; }
+.avatar:hover, .avatar.on { box-shadow: 0 0 0 3px var(--ember-soft); }
+.menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 210px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(8,12,22,.16); padding: 6px; z-index: 60; }
+.menu-head { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.menu-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-email { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.menu-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: none; background: none; border-radius: 8px; cursor: pointer; color: var(--text); font-size: 13px; font-weight: 500; text-align: left; }
+.menu-item:hover { background: var(--canvas); }
+.menu-item.danger { color: var(--ember); }
+.menu-item.danger:hover { background: var(--ember-soft); }
+.menu-backdrop { position: fixed; inset: 0; z-index: 55; }
 
 .body { display: flex; flex: 1; min-height: 0; position: relative; }
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
