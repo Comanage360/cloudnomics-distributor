@@ -114,7 +114,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
     <div class="tabs">
       <button :class="{ on: tab === 'resellers' }" @click="go('resellers')">Resellers</button>
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
-      <button :class="{ on: tab === 'rates' }" @click="go('rates')">Pricing rates</button>
+      <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
     </div>
 
     <!-- Resellers -->
@@ -203,7 +203,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
       <template v-else>
         <div class="cards">
           <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
-          <div class="card"><div class="cl">Recommendations</div><div class="cv">{{ usage.overall.calls }}</div></div>
+          <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usage.overall.calls }}</div></div>
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
         </div>
@@ -214,7 +214,7 @@ const rateFields: { key: keyof Rates; label: string }[] = [
         <table class="grid">
           <thead><tr>
             <th class="sortable" @click="sort('reseller_email')">Reseller{{ arrow('reseller_email') }}</th>
-            <th class="r sortable" @click="sort('calls')">Calls{{ arrow('calls') }}</th>
+            <th class="r sortable" @click="sort('calls')">Quotes{{ arrow('calls') }}</th>
             <th class="r sortable" @click="sort('input_tokens')">Input{{ arrow('input_tokens') }}</th>
             <th class="r sortable" @click="sort('output_tokens')">Output{{ arrow('output_tokens') }}</th>
             <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
