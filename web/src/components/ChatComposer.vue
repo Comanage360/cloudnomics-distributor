@@ -87,14 +87,18 @@ function submitCustomer() {
 <template>
   <div class="composer">
     <div class="inner">
-      <!-- send + calendar -->
+      <!-- one quote per session: after creation, send this quote then start a new session -->
       <div v-if="q.step === 'send' || q.step === 'done'">
+        <div v-if="q.quoteNumber" class="lock-note">
+          This session created <strong>quote #{{ q.quoteNumber }}</strong>. It's one quote per session —
+          start a new session to build another.
+        </div>
         <button v-if="!q.sent" class="btn-primary full" @click="q.send()">
           Send branded quote to {{ q.customer.name || "customer" }}
         </button>
         <div v-else class="sent">✓ Quote sent to {{ q.customer.email }}</div>
         <CalendarBlock class="top" />
-        <button v-if="q.step === 'done'" class="btn-ghost top" @click="q.reset()">↺ Start a new quote</button>
+        <button class="btn-primary full top" @click="q.reset()">↺ Start a new session</button>
       </div>
 
       <template v-else>
@@ -164,4 +168,6 @@ select.input { width: 100%; }
 .hint-err { margin: 8px 2px 0; font-size: 12px; color: var(--ember); }
 .input.invalid { border-color: var(--ember); }
 .sent { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }
+.lock-note { font-size: 12.5px; color: var(--muted); background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; line-height: 1.4; }
+.lock-note strong { color: var(--text); }
 </style>

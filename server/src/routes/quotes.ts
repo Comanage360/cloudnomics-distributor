@@ -5,7 +5,7 @@ import { renderQuotePdf } from "../services/pdf.js";
 import { sendQuoteEmail } from "../services/mailer.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
-  nextNumber, saveQuote, getQuote, markSent, listQuotes,
+  nextNumber, saveQuote, getQuote, markSent, listQuotes, quoteNumberForSession,
 } from "../repositories/quotes.js";
 import { getReseller } from "../repositories/resellers.js";
 import { linkUsageToQuote } from "../repositories/usage.js";
@@ -51,6 +51,15 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
   const pricelist = await loadPricelist();
   const rates = await getRates();
   const totals = buildQuote(selection, pricelist, rates);
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 64) : "";
+
+  // One quote per session: if this session already produced a quote, return it
+  // instead of creating another (idempotent; enforces the 1 session ⇒ 1 quote rule).
+  if (sessionId) {
+    const existing = await quoteNumberForSession(sessionId);
+    if (existing) return res.json({ number: existing, ...totals, alreadyExists: true });
+  }
+
   const number = Number(body.number) || (await nextNumber());
 
   await saveQuote({
@@ -62,11 +71,12 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     totals,
     // Snapshot the reseller's current branding logo onto the quote.
     logo: (await getReseller(req.user!.email))?.logo_url ?? null,
+    sessionId: sessionId || null,
   });
 
   // Attribute this session's AI turns to the quote (powers per-quote token usage).
-  if (typeof body.sessionId === "string" && body.sessionId) {
-    linkUsageToQuote(req.user!.email, body.sessionId.slice(0, 64), number).catch((e) => console.error("[ai_usage link]", e));
+  if (sessionId) {
+    linkUsageToQuote(req.user!.email, sessionId, number).catch((e) => console.error("[ai_usage link]", e));
   }
 
   res.json({ number, ...totals });

@@ -106,7 +106,8 @@ export const useQuote = defineStore("quote", () => {
   /** The single conversation entry point: every user action flows through here. */
   async function sendMessage(text: string) {
     const t = text.trim();
-    if (!t || thinking.value || step.value === "done") return;
+    // One quote per session: once a quote is created the session is locked.
+    if (!t || thinking.value || step.value === "done" || quoteNumber.value) return;
     addUser(t);
     thinking.value = true;
     try {

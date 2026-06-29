@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 
 -- Groups all AI turns of one quoting session (incl. abandoned ones) for "Sessions" reporting.
 ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS session_id TEXT;
+-- The advisor session that produced a quote; enforces one quote per session.
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS session_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_quotes_session ON quotes(session_id);
 
 CREATE INDEX IF NOT EXISTS idx_ai_usage_reseller ON ai_usage(reseller_email);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_session ON ai_usage(session_id);
