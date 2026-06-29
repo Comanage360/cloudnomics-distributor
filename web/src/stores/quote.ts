@@ -97,6 +97,7 @@ export const useQuote = defineStore("quote", () => {
         managed: sel.managed, markup: sel.markup,
         competitiveModel: sel.competitiveModel,
         customerName: customer.name, customerEmail: customer.email,
+        sessionId: sessionId.value, // links this session's AI usage to the quote
       });
       quoteNumber.value = result.number;
     } catch { /* keep the local preview if save fails */ }

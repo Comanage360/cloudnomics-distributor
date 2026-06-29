@@ -176,6 +176,8 @@ const rateFields: { key: keyof Rates; label: string }[] = [
             <th class="r sortable" @click="sort('customer_total')">Customer total{{ arrow('customer_total') }}</th>
             <th class="sortable" @click="sort('status')">Status{{ arrow('status') }}</th>
             <th class="sortable" @click="sort('created_at')">Date{{ arrow('created_at') }}</th>
+            <th class="r sortable" @click="sort('ai_input_tokens')">AI tokens (in/out){{ arrow('ai_input_tokens') }}</th>
+            <th class="r sortable" @click="sort('ai_cost')">AI cost{{ arrow('ai_cost') }}</th>
             <th class="r">Customer PDF</th>
             <th class="r">Partner PDF</th>
           </tr></thead>
@@ -188,10 +190,12 @@ const rateFields: { key: keyof Rates; label: string }[] = [
               <td class="r mono strong">{{ usd(q.customer_total) }}</td>
               <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
               <td class="muted">{{ fmtDate(q.created_at) }}</td>
+              <td class="r mono">{{ Number(q.ai_input_tokens).toLocaleString() }}/{{ Number(q.ai_output_tokens).toLocaleString() }}</td>
+              <td class="r mono">{{ cost4(q.ai_cost) }}</td>
               <td class="r"><button class="link" @click="openPdf(q.number, 'customer')">Open ↗</button></td>
               <td class="r"><button class="link" @click="openPdf(q.number, 'partner')">Open ↗</button></td>
             </tr>
-            <tr v-if="!fQuotes.length"><td colspan="9" class="muted">No quotes match.</td></tr>
+            <tr v-if="!fQuotes.length"><td colspan="11" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
       </template>
