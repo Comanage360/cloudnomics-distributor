@@ -15,17 +15,6 @@ export const config = {
     model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
     version: process.env.ANTHROPIC_VERSION || "2023-06-01",
   },
-  // Vendor-neutral LLM selection. provider "self" routes to a self-hosted
-  // OpenAI-compatible endpoint (vLLM); "anthropic" uses the Anthropic API. The
-  // other configured provider is used as an automatic fallback.
-  llm: {
-    provider: (process.env.LLM_PROVIDER || "anthropic") as "anthropic" | "self",
-    baseUrl: process.env.LLM_BASE_URL || "",
-    model: process.env.LLM_MODEL || "",
-    apiKey: process.env.LLM_API_KEY || "", // optional; else a GCP ID token is used
-    // audience for the GCP metadata ID token (defaults to the model service URL)
-    idTokenAudience: process.env.LLM_ID_TOKEN_AUDIENCE || process.env.LLM_BASE_URL || "",
-  },
   pricing: {
     discount: Number(process.env.RESELLER_DISCOUNT ?? 0.3),
     competitiveBonus: Number(process.env.COMPETITIVE_DISCOUNT ?? 0.1), // extra off for a competitive upgrade
