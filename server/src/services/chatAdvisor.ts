@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { llmComplete } from "./llm.js";
 import { fallbackRecommendation } from "./claude.js";
 import type { Pricelist, Rates, UsageInfo } from "../types.js";
 
@@ -34,6 +34,32 @@ export interface AdviseResult {
   done: boolean;
   usage: UsageInfo | null; // null on the local fallback (no API call billed)
 }
+
+/** Response schema — passed to the backend for guided JSON (vLLM constrained decoding). */
+const ADVISOR_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    reply: { type: "string" },
+    patch: {
+      type: "object",
+      properties: {
+        sku: { type: "string" },
+        users: { type: "integer" },
+        fwImpl: { type: "boolean" },
+        xdr: { type: "boolean" },
+        xdrImpl: { type: "boolean" },
+        managed: { type: "boolean" },
+        competitiveModel: { type: "string" },
+        markup: { type: "number" },
+        customerName: { type: "string" },
+        customerEmail: { type: "string" },
+      },
+    },
+    step: { type: "string", enum: [...STEPS] },
+    done: { type: "boolean" },
+  },
+  required: ["reply", "patch", "step", "done"],
+};
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 
@@ -116,15 +142,11 @@ function deriveStep(state: ChatState, patch: ChatState): Step {
   return "selectFw";
 }
 
-interface AnthropicResponse {
-  content?: { type: string; text?: string }[];
-  usage?: { input_tokens?: number; output_tokens?: number };
-}
-
 /**
  * Advisor turn: given the conversation + current state, produce the next reply,
- * a validated state patch, and the step. Falls back locally (no usage billed)
- * on any failure or when no API key is configured. Pricing is never done here.
+ * a validated state patch, and the step. Routed through the vendor-neutral LLM
+ * layer (self-hosted or Anthropic, with fallback). Falls back to a local
+ * heuristic on any failure / when no provider is configured. No pricing here.
  */
 export async function advise(
   messages: ChatTurn[],
@@ -132,39 +154,15 @@ export async function advise(
   pricelist: Pricelist,
   rates: Rates
 ): Promise<AdviseResult> {
-  if (!config.anthropic.apiKey) return fallbackAdvise(messages, state, pricelist);
-
   try {
-    const reqBody = JSON.stringify({
-      model: config.anthropic.model,
-      max_tokens: 700,
+    const { text, usage } = await llmComplete({
       system: buildSystem(pricelist, rates, state),
       messages: messages.slice(-24).map((m) => ({ role: m.role, content: m.text })),
+      maxTokens: 700,
+      jsonSchema: ADVISOR_SCHEMA,
     });
-    // Retry once on a transient rate-limit / overload (429/529).
-    let res: Response | undefined;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": config.anthropic.apiKey,
-          "anthropic-version": config.anthropic.version,
-        },
-        body: reqBody,
-      });
-      if (res.status !== 429 && res.status !== 529) break;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
-    }
-    if (!res || !res.ok) throw new Error(`Anthropic API ${res?.status}`);
-    const data = (await res.json()) as AnthropicResponse;
-    const text = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text || "")
-      .join("")
-      .replace(/```json|```/g, "")
-      .trim();
-    const parsed = JSON.parse(text) as { reply?: string; patch?: ChatState; step?: string; done?: boolean };
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as { reply?: string; patch?: ChatState; step?: string; done?: boolean };
     const patch = sanitizePatch(parsed.patch, pricelist, rates);
     const step = (STEPS as readonly string[]).includes(parsed.step || "")
       ? (parsed.step as Step)
@@ -174,11 +172,7 @@ export async function advise(
       patch,
       step,
       done: !!parsed.done || step === "done",
-      usage: {
-        model: config.anthropic.model,
-        inputTokens: data.usage?.input_tokens ?? 0,
-        outputTokens: data.usage?.output_tokens ?? 0,
-      },
+      usage,
     };
   } catch (err) {
     console.warn("[chat] advise failed, using fallback:", (err as Error).message);

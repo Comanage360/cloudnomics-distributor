@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { llmComplete } from "./llm.js";
 import type { Pricelist, Recommendation, UsageInfo } from "../types.js";
 
 export interface RecommendResult {
@@ -40,23 +40,16 @@ export function fallbackRecommendation(
   };
 }
 
-interface AnthropicTextBlock { type: string; text?: string }
-interface AnthropicResponse {
-  content?: AnthropicTextBlock[];
-  usage?: { input_tokens?: number; output_tokens?: number };
-}
-
 /**
- * Ask Claude to recommend the best firewall SKU. Falls back locally on any
- * failure or when no API key is configured. Claude never does the pricing math.
- * Returns the recommendation plus token usage (null on the local fallback).
+ * Ask the model to recommend the best firewall SKU (via the vendor-neutral LLM
+ * layer). Falls back locally on any failure or when no provider is configured.
+ * The model never does the pricing math. Returns the recommendation plus token
+ * usage (null on the local fallback).
  */
 export async function recommendFirewall(
   requirement: string,
   pricelist: Pricelist
 ): Promise<RecommendResult> {
-  if (!config.anthropic.apiKey) return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
-
   const system =
     "You are the Cloudnomics Palo Alto Networks advisor helping a reseller who is NOT a Palo Alto expert. " +
     "Given their requirement and the firewall pricelist, pick the single best firewall SKU. " +
@@ -76,36 +69,20 @@ export async function recommendFirewall(
     .join("\n");
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": config.anthropic.apiKey,
-        "anthropic-version": config.anthropic.version,
+    const { text, usage } = await llmComplete({
+      system,
+      messages: [
+        { role: "user", content: `Reseller requirement: "${requirement}"\n\nFirewall pricelist:\n${listText}` },
+      ],
+      maxTokens: 1000,
+      jsonSchema: {
+        type: "object",
+        properties: { sku: { type: "string" }, users: { type: "integer" }, message: { type: "string" } },
+        required: ["sku", "users", "message"],
       },
-      body: JSON.stringify({
-        model: config.anthropic.model,
-        max_tokens: 1000,
-        system,
-        messages: [
-          {
-            role: "user",
-            content: `Reseller requirement: "${requirement}"\n\nFirewall pricelist:\n${listText}`,
-          },
-        ],
-      }),
     });
 
-    if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
-    const data = (await res.json()) as AnthropicResponse;
-    const text = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text || "")
-      .join("")
-      .replace(/```json|```/g, "")
-      .trim();
-
-    const parsed = JSON.parse(text) as Partial<Recommendation>;
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as Partial<Recommendation>;
     const picked = pricelist.firewalls.find((f) => f.sku === parsed.sku);
     // Reject an unknown SKU or an on-request product (CN-Series has no price).
     if (!parsed.sku || !picked || picked.unit === "on_request" || picked.list == null) {
@@ -123,16 +100,12 @@ export async function recommendFirewall(
         series: picked.series,
         unit: picked.unit,
         message: parsed.message || `Recommended ${picked.sku} for your requirement.`,
-        source: "claude",
+        source: "claude", // = "from the model" (vs the local "fallback")
       },
-      usage: {
-        model: config.anthropic.model,
-        inputTokens: data.usage?.input_tokens ?? 0,
-        outputTokens: data.usage?.output_tokens ?? 0,
-      },
+      usage,
     };
   } catch (err) {
-    console.warn("[claude] recommendation failed, using fallback:", (err as Error).message);
+    console.warn("[recommend] model recommendation failed, using fallback:", (err as Error).message);
     return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
   }
 }
