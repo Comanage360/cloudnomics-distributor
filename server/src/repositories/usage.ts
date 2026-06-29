@@ -17,6 +17,16 @@ export async function insertUsage(resellerEmail: string, u: UsageInfo, sessionId
   );
 }
 
+/** Attribute a session's AI turns to the quote it produced (called on finalize). */
+export async function linkUsageToQuote(resellerEmail: string, sessionId: string, quoteNumber: number): Promise<void> {
+  if (!sessionId) return;
+  await query(
+    `UPDATE ai_usage SET quote_number = $1
+      WHERE reseller_email = $2 AND session_id = $3 AND quote_number IS NULL`,
+    [quoteNumber, resellerEmail, sessionId]
+  );
+}
+
 export interface UsageTotals {
   reseller_email: string;
   calls: number;    // completed quotes (from the quotes table)

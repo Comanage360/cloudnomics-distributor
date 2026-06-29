@@ -111,6 +111,10 @@ export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "bra
 
 export interface AdminQuote extends QuoteSummary {
   reseller_email: string;
+  ai_input_tokens: string;
+  ai_output_tokens: string;
+  ai_cost: string;
+  ai_turns: number;
 }
 
 export interface QuoteSummary {

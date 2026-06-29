@@ -91,16 +91,34 @@ export interface QuoteListRow {
 
 export interface AdminQuoteRow extends QuoteListRow {
   reseller_email: string;
+  ai_input_tokens: string;
+  ai_output_tokens: string;
+  ai_cost: string;
+  ai_turns: number;
 }
 
-/** All quotes across resellers (admin), optionally filtered to one reseller. */
+/** All quotes across resellers (admin), optionally filtered to one reseller.
+ *  Includes per-quote AI token usage + cost (summed from ai_usage by quote). */
 export async function listAllQuotes(resellerEmail?: string): Promise<AdminQuoteRow[]> {
   const r = await query<AdminQuoteRow>(
-    `SELECT number, reseller_email, customer_name, customer_email, customer_total,
-            reseller_total, markup, status, created_at, selection->>'sku' AS sku
-       FROM quotes
-      ${resellerEmail ? "WHERE reseller_email = $1" : ""}
-      ORDER BY number DESC`,
+    `SELECT q.number, q.reseller_email, q.customer_name, q.customer_email, q.customer_total,
+            q.reseller_total, q.markup, q.status, q.created_at, q.selection->>'sku' AS sku,
+            COALESCE(u.input_tokens, 0)  AS ai_input_tokens,
+            COALESCE(u.output_tokens, 0) AS ai_output_tokens,
+            COALESCE(u.cost_usd, 0)      AS ai_cost,
+            COALESCE(u.turns, 0)::int    AS ai_turns
+       FROM quotes q
+       LEFT JOIN (
+         SELECT quote_number,
+                SUM(input_tokens)  AS input_tokens,
+                SUM(output_tokens) AS output_tokens,
+                SUM(cost_usd)      AS cost_usd,
+                COUNT(*)           AS turns
+           FROM ai_usage WHERE quote_number IS NOT NULL
+          GROUP BY quote_number
+       ) u ON u.quote_number = q.number
+      ${resellerEmail ? "WHERE q.reseller_email = $1" : ""}
+      ORDER BY q.number DESC`,
     resellerEmail ? [resellerEmail] : []
   );
   return r.rows;

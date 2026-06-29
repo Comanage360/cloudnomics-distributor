@@ -8,6 +8,7 @@ import {
   nextNumber, saveQuote, getQuote, markSent, listQuotes,
 } from "../repositories/quotes.js";
 import { getReseller } from "../repositories/resellers.js";
+import { linkUsageToQuote } from "../repositories/usage.js";
 import { getRates } from "../services/rates.js";
 import type { QuoteSelection } from "../types.js";
 
@@ -62,6 +63,11 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     // Snapshot the reseller's current branding logo onto the quote.
     logo: (await getReseller(req.user!.email))?.logo_url ?? null,
   });
+
+  // Attribute this session's AI turns to the quote (powers per-quote token usage).
+  if (typeof body.sessionId === "string" && body.sessionId) {
+    linkUsageToQuote(req.user!.email, body.sessionId.slice(0, 64), number).catch((e) => console.error("[ai_usage link]", e));
+  }
 
   res.json({ number, ...totals });
 });
