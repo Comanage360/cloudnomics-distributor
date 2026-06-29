@@ -21,18 +21,29 @@ export interface SaveQuoteInput {
   selection: QuoteSelection;
   totals: QuoteTotals;
   logo?: string | null;
+  sessionId?: string | null;
+}
+
+/** The quote a given advisor session already produced, if any (enforces 1:1). */
+export async function quoteNumberForSession(sessionId: string): Promise<number | null> {
+  if (!sessionId) return null;
+  const r = await query<{ number: string }>(
+    "SELECT number FROM quotes WHERE session_id = $1 ORDER BY number LIMIT 1",
+    [sessionId]
+  );
+  return r.rows[0] ? Number(r.rows[0].number) : null;
 }
 
 export async function saveQuote(input: SaveQuoteInput): Promise<void> {
-  const { number, resellerEmail, customerName, customerEmail, selection, totals, logo = null } = input;
+  const { number, resellerEmail, customerName, customerEmail, selection, totals, logo = null, sessionId = null } = input;
   const client = await (await import("../db.js")).pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO quotes
          (number, reseller_email, customer_name, customer_email, currency,
-          discount, markup, reseller_total, customer_total, margin, selection, logo, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft')
+          discount, markup, reseller_total, customer_total, margin, selection, logo, session_id, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'draft')
        ON CONFLICT (number) DO UPDATE SET
          customer_name = EXCLUDED.customer_name,
          customer_email = EXCLUDED.customer_email,
@@ -45,7 +56,7 @@ export async function saveQuote(input: SaveQuoteInput): Promise<void> {
       [
         number, resellerEmail, customerName, customerEmail, totals.currency,
         totals.discount, totals.markup, totals.resellerTotal,
-        totals.customerTotal, totals.margin, JSON.stringify(selection), logo,
+        totals.customerTotal, totals.margin, JSON.stringify(selection), logo, sessionId,
       ]
     );
     await client.query("DELETE FROM quote_items WHERE quote_number = $1", [number]);
