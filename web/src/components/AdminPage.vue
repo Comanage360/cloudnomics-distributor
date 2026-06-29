@@ -93,22 +93,29 @@ function go(t: Tab) {
 }
 onMounted(loadResellers);
 
-const rateFields: { key: keyof Rates; label: string; desc: string }[] = [
-  { key: "discount", label: "Reseller discount",
+const rateFields: { key: keyof Rates; label: string; desc: string; max: number; step: number }[] = [
+  { key: "discount", label: "Reseller discount", max: 1, step: 0.01,
     desc: "Base discount off Palo Alto product list prices. Decimal — 0.30 = 30% off." },
-  { key: "competitiveBonus", label: "Competitive upgrade bonus",
+  { key: "competitiveBonus", label: "Competitive upgrade bonus", max: 1, step: 0.01,
     desc: "Extra discount when the deal is a competitive upgrade (migrating from another vendor), on top of the reseller discount. Decimal — 0.10 = +10%." },
-  { key: "implRate", label: "Implementation rate",
+  { key: "implRate", label: "Implementation rate", max: 1, step: 0.01,
     desc: "Professional-implementation fee as a fraction of its product's reseller price. Decimal — 0.15 = 15%." },
-  { key: "managedRate", label: "Managed service rate",
+  { key: "managedRate", label: "Managed service rate", max: 1, step: 0.01,
     desc: "Managed-service fee as a fraction of the quote subtotal. Decimal — 0.15 = 15%." },
-  { key: "markupDefault", label: "Markup default (%)",
+  { key: "markupDefault", label: "Markup default (%)", max: 100, step: 1,
     desc: "Customer markup pre-selected on the slider when a new quote starts. Percentage — 15 = +15%." },
-  { key: "markupMin", label: "Markup min (%)",
+  { key: "markupMin", label: "Markup min (%)", max: 100, step: 1,
     desc: "Lowest markup a reseller can set on the slider. Percentage." },
-  { key: "markupMax", label: "Markup max (%)",
+  { key: "markupMax", label: "Markup max (%)", max: 100, step: 1,
     desc: "Highest markup a reseller can set on the slider. Percentage." },
 ];
+
+/** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */
+function clampRate(f: { key: keyof Rates; max: number }) {
+  if (!rates.value) return;
+  const v = Number(rates.value[f.key]);
+  rates.value[f.key] = Math.max(0, Math.min(f.max, Number.isFinite(v) ? v : 0));
+}
 </script>
 
 <template>
@@ -258,8 +265,8 @@ const rateFields: { key: keyof Rates; label: string; desc: string }[] = [
         <div class="rateform">
           <label v-for="f in rateFields" :key="f.key" class="rate">
             <span class="rate-label">{{ f.label }}</span>
-            <input type="number" step="0.01" v-model.number="rates[f.key]" />
             <small class="rate-desc">{{ f.desc }}</small>
+            <input type="number" min="0" :max="f.max" :step="f.step" v-model.number="rates[f.key]" @change="clampRate(f)" />
           </label>
         </div>
         <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save rates" }}</button>
