@@ -93,14 +93,21 @@ function go(t: Tab) {
 }
 onMounted(loadResellers);
 
-const rateFields: { key: keyof Rates; label: string }[] = [
-  { key: "discount", label: "Reseller discount" },
-  { key: "competitiveBonus", label: "Competitive upgrade bonus" },
-  { key: "implRate", label: "Implementation rate" },
-  { key: "managedRate", label: "Managed service rate" },
-  { key: "markupDefault", label: "Markup default (%)" },
-  { key: "markupMin", label: "Markup min (%)" },
-  { key: "markupMax", label: "Markup max (%)" },
+const rateFields: { key: keyof Rates; label: string; desc: string }[] = [
+  { key: "discount", label: "Reseller discount",
+    desc: "Base discount off Palo Alto product list prices. Decimal — 0.30 = 30% off." },
+  { key: "competitiveBonus", label: "Competitive upgrade bonus",
+    desc: "Extra discount when the deal is a competitive upgrade (migrating from another vendor), on top of the reseller discount. Decimal — 0.10 = +10%." },
+  { key: "implRate", label: "Implementation rate",
+    desc: "Professional-implementation fee as a fraction of its product's reseller price. Decimal — 0.15 = 15%." },
+  { key: "managedRate", label: "Managed service rate",
+    desc: "Managed-service fee as a fraction of the quote subtotal. Decimal — 0.15 = 15%." },
+  { key: "markupDefault", label: "Markup default (%)",
+    desc: "Customer markup pre-selected on the slider when a new quote starts. Percentage — 15 = +15%." },
+  { key: "markupMin", label: "Markup min (%)",
+    desc: "Lowest markup a reseller can set on the slider. Percentage." },
+  { key: "markupMax", label: "Markup max (%)",
+    desc: "Highest markup a reseller can set on the slider. Percentage." },
 ];
 </script>
 
@@ -247,11 +254,12 @@ const rateFields: { key: keyof Rates; label: string }[] = [
     <section v-else>
       <div v-if="!rates" class="state">Loading…</div>
       <template v-else>
-        <p class="hint">Rates apply to every new quote. Enter discounts/rates as decimals (0.30 = 30%); markup fields are percentages.</p>
+        <p class="hint">Changes apply to every new quote.</p>
         <div class="rateform">
           <label v-for="f in rateFields" :key="f.key" class="rate">
-            <span>{{ f.label }}</span>
+            <span class="rate-label">{{ f.label }}</span>
             <input type="number" step="0.01" v-model.number="rates[f.key]" />
+            <small class="rate-desc">{{ f.desc }}</small>
           </label>
         </div>
         <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save rates" }}</button>
@@ -303,6 +311,7 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .rateform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 720px; }
 .rate { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--text); }
 .rate input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--mono); }
+.rate-desc { font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.4; }
 .save { width: auto; padding: 10px 22px; margin-top: 16px; }
 @media (max-width: 760px) { .page { padding: 16px; } }
 </style>
