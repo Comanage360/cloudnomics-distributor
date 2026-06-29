@@ -190,7 +190,10 @@ const rateFields: { key: keyof Rates; label: string }[] = [
               <td class="r mono strong">{{ usd(q.customer_total) }}</td>
               <td><span class="badge" :class="q.status">{{ q.status }}</span></td>
               <td class="muted">{{ fmtDate(q.created_at) }}</td>
-              <td class="r mono">{{ Number(q.ai_input_tokens).toLocaleString() }}/{{ Number(q.ai_output_tokens).toLocaleString() }}</td>
+              <td class="r mono nowrap">
+                <span class="tok-in" title="Input tokens">↑ {{ Number(q.ai_input_tokens).toLocaleString() }}</span>
+                <span class="tok-out" title="Output tokens">↓ {{ Number(q.ai_output_tokens).toLocaleString() }}</span>
+              </td>
               <td class="r mono">{{ cost4(q.ai_cost) }}</td>
               <td class="r"><button class="link" @click="openPdf(q.number, 'customer')">Open ↗</button></td>
               <td class="r"><button class="link" @click="openPdf(q.number, 'partner')">Open ↗</button></td>
@@ -281,6 +284,10 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .mono { font-family: var(--mono); }
 .strong { font-weight: 700; }
 .muted { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+/* AI token direction: green ↑ for input sent, ember ↓ for output received */
+.tok-in { color: var(--success); }
+.tok-out { color: var(--ember); margin-left: 8px; }
 .badge { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 20px; text-transform: capitalize; background: var(--canvas); color: var(--muted); }
 .badge.admin { background: var(--ember-soft); color: var(--ember); }
 .badge.sent { background: var(--success-soft); color: var(--success); }
