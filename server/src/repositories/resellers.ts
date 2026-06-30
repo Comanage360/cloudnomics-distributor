@@ -48,15 +48,17 @@ export interface ResellerSummary {
   quote_count: number;
   total_value: string;
   last_quote_at: string | null;
+  ai_cost: string;
 }
 
-/** All resellers with quote aggregates — admin dashboard. */
+/** All resellers with quote aggregates + AI spend — admin dashboard. */
 export async function listResellers(): Promise<ResellerSummary[]> {
   const r = await query<ResellerSummary>(
     `SELECT r.email, r.company, r.role,
             COUNT(q.number)::int AS quote_count,
             COALESCE(SUM(q.customer_total), 0) AS total_value,
-            MAX(q.created_at) AS last_quote_at
+            MAX(q.created_at) AS last_quote_at,
+            COALESCE((SELECT SUM(cost_usd) FROM ai_usage a WHERE a.reseller_email = r.email), 0) AS ai_cost
        FROM resellers r
        LEFT JOIN quotes q ON q.reseller_email = r.email
       GROUP BY r.email, r.company, r.role

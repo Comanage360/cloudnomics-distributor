@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { api } from "../api";
 import { money } from "../theme";
 import Skeleton from "./Skeleton.vue";
+import Pagination from "./Pagination.vue";
+import { VueDatePicker } from "@vuepic/vue-datepicker";
+import "@vuepic/vue-datepicker/dist/main.css";
 import { useToast } from "../stores/toast";
 import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
@@ -28,10 +31,35 @@ const dateTo = ref("");
 const sortKey = ref("");
 const sortDir = ref<"asc" | "desc">("asc");
 
+// pagination (25 rows per page on every table)
+const PER_PAGE = 25;
+const resellersPage = ref(1);
+const quotesPage = ref(1);
+const usagePage = ref(1);
+
+// quotes date-range presets
+const activePreset = ref<"1d" | "7d" | "30d" | "custom">("7d");
+
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
 const term = () => search.value.trim().toLowerCase();
+
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function setPreset(days: number, key: "1d" | "7d" | "30d") {
+  const to = new Date();
+  const from = new Date(); from.setDate(from.getDate() - (days - 1));
+  dateFrom.value = isoDate(from); dateTo.value = isoDate(to); activePreset.value = key;
+}
+// single range control (vue-datepicker) bound to the from/to strings
+const dateRange = computed<Date[] | null>({
+  get: () => (dateFrom.value && dateTo.value ? [new Date(dateFrom.value + "T00:00:00"), new Date(dateTo.value + "T00:00:00")] : null),
+  set: (v: Date[] | null) => {
+    if (v && v[0] && v[1]) { dateFrom.value = isoDate(v[0]); dateTo.value = isoDate(v[1]); }
+    else { dateFrom.value = ""; dateTo.value = ""; }
+    activePreset.value = "custom";
+  },
+});
 
 function sort(key: string) {
   if (sortKey.value === key) sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
@@ -76,10 +104,12 @@ const fQuotes = computed(() =>
   }))
 );
 const quoteFiltersActive = computed(() =>
-  !!(search.value || statusFilter.value !== "all" || skuFilter.value !== "all" || dateFrom.value || dateTo.value));
-function clearQuoteFilters() {
-  search.value = ""; statusFilter.value = "all"; skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
+  !!(search.value || statusFilter.value !== "all" || skuFilter.value !== "all" || activePreset.value !== "7d"));
+// View Quotes defaults to the last 7 days; "Clear" returns to that default.
+function defaultQuoteFilters() {
+  search.value = ""; statusFilter.value = "all"; skuFilter.value = "all"; setPreset(7, "7d");
 }
+function clearQuoteFilters() { defaultQuoteFilters(); }
 const fUsage = computed(() =>
   sortRows((usage.value?.byReseller || []).filter((u: UsageRow) =>
     !term() || u.reseller_email.toLowerCase().includes(term()) || (u.company || "").toLowerCase().includes(term())))
@@ -88,6 +118,20 @@ const fUsage = computed(() =>
 const usageTotals = computed(() => {
   const sum = (k: keyof UsageRow) => fUsage.value.reduce((s, r) => s + Number(r[k] || 0), 0);
   return { calls: sum("calls"), incomplete: sum("incomplete"), input: sum("input_tokens"), output: sum("output_tokens"), cost: sum("cost_usd") };
+});
+// Reseller footer totals (quotes, total value, AI spend) across the filtered set.
+const resellerTotals = computed(() => {
+  const sum = (f: (r: AdminReseller) => number) => fResellers.value.reduce((s, r) => s + f(r), 0);
+  return { quotes: sum((r) => Number(r.quote_count) || 0), value: sum((r) => Number(r.total_value) || 0), ai: sum((r) => Number(r.ai_cost) || 0) };
+});
+
+// current page slices (25/page)
+const pagedResellers = computed(() => fResellers.value.slice((resellersPage.value - 1) * PER_PAGE, resellersPage.value * PER_PAGE));
+const pagedQuotes = computed(() => fQuotes.value.slice((quotesPage.value - 1) * PER_PAGE, quotesPage.value * PER_PAGE));
+const pagedUsage = computed(() => fUsage.value.slice((usagePage.value - 1) * PER_PAGE, usagePage.value * PER_PAGE));
+// back to page 1 whenever filters/sort/drill change
+watch([search, roleFilter, statusFilter, skuFilter, dateFrom, dateTo, drill, sortKey, sortDir], () => {
+  resellersPage.value = 1; quotesPage.value = 1; usagePage.value = 1;
 });
 
 function resetControls() {
@@ -101,6 +145,7 @@ async function loadRates() { try { rates.value = await api.adminRates(); } catch
 
 async function openReseller(email: string) {
   resetControls();
+  defaultQuoteFilters(); // default the View Quotes view to the last 7 days
   drill.value = email;
   try { quotes.value = await api.adminQuotes(email); } catch (e) { toast.show((e as Error).message); }
 }
@@ -178,23 +223,35 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <th class="sortable" @click="sort('email')">Email{{ arrow('email') }}</th>
             <th class="sortable" @click="sort('role')">Role{{ arrow('role') }}</th>
             <th class="r sortable" @click="sort('quote_count')">Quotes{{ arrow('quote_count') }}</th>
-            <th class="r sortable" @click="sort('total_value')">Total value{{ arrow('total_value') }}</th>
-            <th class="sortable" @click="sort('last_quote_at')">Last quote{{ arrow('last_quote_at') }}</th>
+            <th class="r sortable" @click="sort('total_value')">Total quotes value{{ arrow('total_value') }}</th>
+            <th class="r sortable" @click="sort('ai_cost')">AI cost{{ arrow('ai_cost') }}</th>
+            <th class="sortable" @click="sort('last_quote_at')">Last quote on{{ arrow('last_quote_at') }}</th>
             <th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="r in fResellers" :key="r.email">
+            <tr v-for="r in pagedResellers" :key="r.email">
               <td class="strong">{{ r.company || "—" }}</td>
               <td class="muted">{{ r.email }}</td>
               <td><span class="badge" :class="r.role">{{ r.role }}</span></td>
               <td class="r mono">{{ r.quote_count }}</td>
               <td class="r mono">{{ usd(r.total_value) }}</td>
+              <td class="r mono">{{ cost4(r.ai_cost) }}</td>
               <td class="muted">{{ fmtDate(r.last_quote_at) }}</td>
               <td class="r"><button class="link" :disabled="!r.quote_count" @click="openReseller(r.email)">View quotes →</button></td>
             </tr>
-            <tr v-if="!fResellers.length"><td colspan="7" class="muted">No resellers match.</td></tr>
+            <tr v-if="!fResellers.length"><td colspan="8" class="muted">No resellers match.</td></tr>
           </tbody>
+          <tfoot v-if="fResellers.length">
+            <tr class="totrow">
+              <td>Total</td><td></td><td></td>
+              <td class="r mono">{{ resellerTotals.quotes }}</td>
+              <td class="r mono">{{ usd(resellerTotals.value) }}</td>
+              <td class="r mono">{{ cost4(resellerTotals.ai) }}</td>
+              <td></td><td></td>
+            </tr>
+          </tfoot>
         </table>
+        <Pagination v-model:page="resellersPage" :total="fResellers.length" :per-page="PER_PAGE" />
       </template>
 
       <template v-else>
@@ -211,10 +268,17 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <option value="all">All products</option>
             <option v-for="s in skuOptions" :key="s" :value="s">{{ s }}</option>
           </select>
-          <label class="datef">From <input type="date" v-model="dateFrom" class="date" /></label>
-          <label class="datef">To <input type="date" v-model="dateTo" class="date" /></label>
           <button v-if="quoteFiltersActive" class="link clearf" @click="clearQuoteFilters">Clear filters</button>
-          <span class="count">{{ fQuotes.length }} of {{ quotes.length }}</span>
+          <div class="rightgroup">
+            <span class="count2">{{ fQuotes.length }} of {{ quotes.length }}</span>
+            <div class="seg presets">
+              <button :class="{ on: activePreset === '1d' }" @click="setPreset(1, '1d')">1D</button>
+              <button :class="{ on: activePreset === '7d' }" @click="setPreset(7, '7d')">7D</button>
+              <button :class="{ on: activePreset === '30d' }" @click="setPreset(30, '30d')">30D</button>
+            </div>
+            <VueDatePicker v-model="dateRange" range :enable-time-picker="false" :clearable="true"
+              format="dd MMM yyyy" placeholder="Date range" :teleport="true" class="dp" />
+          </div>
         </div>
         <table class="grid">
           <thead><tr>
@@ -231,7 +295,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <th class="r">Partner PDF</th>
           </tr></thead>
           <tbody>
-            <tr v-for="q in fQuotes" :key="q.number">
+            <tr v-for="q in pagedQuotes" :key="q.number">
               <td class="mono">#{{ q.number }}</td>
               <td>{{ q.customer_name || "Customer" }}</td>
               <td>{{ q.sku || "—" }}</td>
@@ -250,6 +314,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <tr v-if="!fQuotes.length"><td colspan="11" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
+        <Pagination v-model:page="quotesPage" :total="fQuotes.length" :per-page="PER_PAGE" />
       </template>
     </section>
 
@@ -278,7 +343,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="u in fUsage" :key="u.reseller_email">
+            <tr v-for="u in pagedUsage" :key="u.reseller_email">
               <td>
                 <div class="cname">{{ u.company || "—" }}</div>
                 <div class="cmail">{{ u.reseller_email }}</div>
@@ -302,6 +367,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             </tr>
           </tfoot>
         </table>
+        <Pagination v-model:page="usagePage" :total="fUsage.length" :per-page="PER_PAGE" />
       </template>
     </section>
 
@@ -339,6 +405,14 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .datef { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .date { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
 .clearf { font-size: 12.5px; }
+.rightgroup { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.count2 { font-size: 12px; color: var(--muted); }
+.seg.presets { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.seg.presets button:last-child { border-right: none; }
+.seg.presets button.on { background: var(--ember-soft); color: var(--ember); }
+.dp { width: 230px; --dp-primary-color: var(--ember); }
+.dp :deep(.dp__input) { border-radius: 8px; border-color: var(--line); font-size: 13px; padding-top: 7px; padding-bottom: 7px; }
 .state { padding: 30px; text-align: center; color: var(--muted); }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
