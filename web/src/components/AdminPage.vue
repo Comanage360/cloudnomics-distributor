@@ -292,7 +292,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
               <button :class="{ on: activePreset === '7d' }" @click="setPreset(7, '7d')">7D</button>
               <button :class="{ on: activePreset === '30d' }" @click="setPreset(30, '30d')">30D</button>
             </div>
-            <VueDatePicker v-model="dateRange" range :enable-time-picker="false" :clearable="true"
+            <VueDatePicker v-model="dateRange" range :enable-time-picker="false" auto-apply :clearable="true"
               format="dd MMM yyyy" placeholder="Date range" :teleport="true" class="dp" />
           </div>
         </div>

@@ -12,19 +12,17 @@ function go(n: number) { if (n >= 1 && n <= pages.value) emit("update:page", n);
 
 <template>
   <div v-if="total > perPage" class="pager">
+    <button :disabled="page <= 1" @click="go(page - 1)" aria-label="Previous page">←</button>
+    <span class="cur">Page {{ page }} / {{ pages }}</span>
+    <button :disabled="page >= pages" @click="go(page + 1)" aria-label="Next page">→</button>
     <span class="info">{{ from }}–{{ to }} of {{ total }}</span>
-    <div class="btns">
-      <button :disabled="page <= 1" @click="go(page - 1)" aria-label="Previous page">←</button>
-      <span class="cur">Page {{ page }} / {{ pages }}</span>
-      <button :disabled="page >= pages" @click="go(page + 1)" aria-label="Next page">→</button>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-.btns { display: flex; align-items: center; gap: 8px; }
-.cur { font-variant-numeric: tabular-nums; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.cur { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+.info { color: var(--muted); }
 .pager button { padding: 5px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
 .pager button:disabled { opacity: .45; cursor: default; }
 .pager button:not(:disabled):hover { border-color: var(--ember); color: var(--ember); }
