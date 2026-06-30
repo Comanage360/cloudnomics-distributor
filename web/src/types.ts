@@ -81,6 +81,7 @@ export interface AdminReseller {
   quote_count: number;
   total_value: string;
   last_quote_at: string | null;
+  ai_cost: string;
 }
 
 export interface UsageRow {
