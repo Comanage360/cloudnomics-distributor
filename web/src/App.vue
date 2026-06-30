@@ -1,12 +1,19 @@
 <script setup lang="ts">
+import { watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { useSession } from "./stores/session";
-import LoginView from "./pages/LoginView.vue";
-import ConsoleView from "./pages/ConsoleView.vue";
 
 const session = useSession();
+const router = useRouter();
+const route = useRoute();
+
+// Redirect on auth changes: login success -> app, logout / token expiry -> login.
+watch(() => session.authed, (a) => {
+  if (!a && route.name !== "login") router.replace("/login");
+  else if (a && route.name === "login") router.replace("/");
+});
 </script>
 
 <template>
-  <LoginView v-if="!session.authed" />
-  <ConsoleView v-else />
+  <router-view />
 </template>

@@ -5,12 +5,19 @@ import { money } from "../theme";
 import type { QuoteSummary } from "../types";
 import Skeleton from "./Skeleton.vue";
 import EmptyState from "./EmptyState.vue";
+import { useRouter } from "vue-router";
+import { useQuote } from "../stores/quote";
+import { useToast } from "../stores/toast";
+
+const router = useRouter();
+const quoteStore = useQuote();
+const toast = useToast();
 
 const quotes = ref<QuoteSummary[]>([]);
 const loading = ref(true);
 const error = ref("");
 
-const emit = defineEmits<{ newQuote: []; toast: [msg: string] }>();
+function newQuote() { quoteStore.reset(); router.push("/"); }
 
 // filters
 const search = ref("");
@@ -61,7 +68,7 @@ async function openPdf(n: number, variant: "partner" | "customer" = "customer") 
     const url = await api.quotePdf(n, variant);
     window.open(url, "_blank");
   } catch (e) {
-    emit("toast", `Could not open PDF: ${(e as Error).message}`);
+    toast.show(`Could not open PDF: ${(e as Error).message}`);
   }
 }
 </script>
@@ -73,7 +80,7 @@ async function openPdf(n: number, variant: "partner" | "customer" = "customer") 
         <h1>My quotes</h1>
         <p>Every quote you've generated, newest first.</p>
       </div>
-      <button class="btn-primary" @click="emit('newQuote')">+ New quote</button>
+      <button class="btn-primary" @click="newQuote">+ New quote</button>
     </div>
 
     <Skeleton v-if="loading" :rows="6" />
@@ -81,7 +88,7 @@ async function openPdf(n: number, variant: "partner" | "customer" = "customer") 
 
     <EmptyState v-else-if="!quotes.length" icon="quotes" title="No quotes yet"
       text="Build your first Palo Alto quote with the AI assistant — it'll show up here.">
-      <button class="btn-primary" @click="emit('newQuote')">+ Start your first quote</button>
+      <button class="btn-primary" @click="newQuote">+ Start your first quote</button>
     </EmptyState>
 
     <template v-else>
