@@ -229,13 +229,11 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <option value="admin">Admins</option>
             <option value="reseller">Resellers</option>
           </select>
-          <span class="count">{{ fResellers.length }} of {{ resellers.length }}</span>
         </div>
         <Skeleton v-if="loading" :rows="6" />
         <table v-else class="grid">
           <thead><tr>
-            <th class="sortable" @click="sort('company')">Company{{ arrow('company') }}</th>
-            <th class="sortable" @click="sort('email')">Email{{ arrow('email') }}</th>
+            <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
             <th class="sortable" @click="sort('role')">Role{{ arrow('role') }}</th>
             <th class="r sortable" @click="sort('quote_count')">Quotes{{ arrow('quote_count') }}</th>
             <th class="r sortable" @click="sort('total_value')">Total quotes value{{ arrow('total_value') }}</th>
@@ -245,20 +243,25 @@ function clampRate(f: { key: keyof Rates; max: number }) {
           </tr></thead>
           <tbody>
             <tr v-for="r in pagedResellers" :key="r.email">
-              <td class="strong">{{ r.company || "—" }}</td>
-              <td class="muted">{{ r.email }}</td>
+              <td>
+                <div class="cname">{{ r.company || "—" }}</div>
+                <div class="cmail">{{ r.email }}</div>
+              </td>
               <td><span class="badge" :class="r.role">{{ r.role }}</span></td>
-              <td class="r mono">{{ r.quote_count }}</td>
+              <td class="r">
+                <button v-if="r.quote_count" class="link mono" @click="openReseller(r.email)">{{ r.quote_count }}</button>
+                <span v-else class="mono muted">0</span>
+              </td>
               <td class="r mono">{{ usd(r.total_value) }}</td>
               <td class="r mono">{{ cost4(r.ai_cost) }}</td>
               <td class="muted">{{ fmtDate(r.last_quote_at) }}</td>
               <td class="r"><button class="link" :disabled="!r.quote_count" @click="openReseller(r.email)">View quotes →</button></td>
             </tr>
-            <tr v-if="!fResellers.length"><td colspan="8" class="muted">No resellers match.</td></tr>
+            <tr v-if="!fResellers.length"><td colspan="7" class="muted">No resellers match.</td></tr>
           </tbody>
           <tfoot v-if="fResellers.length">
             <tr class="totrow">
-              <td>Total</td><td></td><td></td>
+              <td>Total</td><td></td>
               <td class="r mono">{{ resellerTotals.quotes }}</td>
               <td class="r mono">{{ usd(resellerTotals.value) }}</td>
               <td class="r mono">{{ cost4(resellerTotals.ai) }}</td>
@@ -266,6 +269,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             </tr>
           </tfoot>
         </table>
+        <div class="tablecount">{{ fResellers.length }} of {{ resellers.length }} resellers</div>
         <Pagination v-model:page="resellersPage" :total="fResellers.length" :per-page="PER_PAGE" />
       </template>
 
@@ -311,7 +315,10 @@ function clampRate(f: { key: keyof Rates; max: number }) {
           <tbody>
             <tr v-for="q in pagedQuotes" :key="q.number">
               <td class="mono">#{{ q.number }}</td>
-              <td>{{ q.customer_name || "Customer" }}</td>
+              <td>
+                <div class="cname">{{ q.customer_name || "Customer" }}</div>
+                <div class="cmail">{{ q.customer_email }}</div>
+              </td>
               <td>{{ q.sku || "—" }}</td>
               <td class="r mono">{{ usd(q.reseller_total) }}</td>
               <td class="r mono strong">{{ usd(q.customer_total) }}</td>
@@ -366,7 +373,6 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         </div>
         <div class="toolbar">
           <input v-model="search" class="search" placeholder="Search reseller…" />
-          <span class="count">{{ fUsage.length }} of {{ usage.byReseller.length }}</span>
         </div>
         <table class="grid">
           <thead><tr>
@@ -402,6 +408,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             </tr>
           </tfoot>
         </table>
+        <div class="tablecount">{{ fUsage.length }} of {{ usage.byReseller.length }} resellers</div>
         <Pagination v-model:page="usagePage" :total="fUsage.length" :per-page="PER_PAGE" />
       </template>
     </section>
