@@ -4,6 +4,7 @@ import { api } from "../api";
 import { money } from "../theme";
 import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
+import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
 import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
@@ -53,6 +54,15 @@ function setPreset(days: number, key: "1d" | "7d" | "30d") {
   const from = new Date(); from.setDate(from.getDate() - (days - 1));
   dateFrom.value = isoDate(from); dateTo.value = isoDate(to); activePreset.value = key;
 }
+// PrimeVue DatePicker range model ([start, end]) bound to the from/to strings.
+const dateRange = computed<(Date | null)[] | null>({
+  get: () => (dateFrom.value && dateTo.value ? [new Date(dateFrom.value + "T00:00:00"), new Date(dateTo.value + "T00:00:00")] : null),
+  set: (v) => {
+    if (v && v[0] && v[1]) { dateFrom.value = isoDate(v[0]); dateTo.value = isoDate(v[1]); activePreset.value = "custom"; }
+    else if (!v) { dateFrom.value = ""; dateTo.value = ""; activePreset.value = "custom"; }
+    // partial selection ([start, null]) — wait for the end date before filtering
+  },
+});
 
 function sort(key: string) {
   if (sortKey.value === key) sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
@@ -280,8 +290,8 @@ function clampRate(f: { key: keyof Rates; max: number }) {
               <button :class="{ on: activePreset === '7d' }" @click="setPreset(7, '7d')">7D</button>
               <button :class="{ on: activePreset === '30d' }" @click="setPreset(30, '30d')">30D</button>
             </div>
-            <label class="datef">From <input type="date" v-model="dateFrom" class="date" @change="activePreset = 'custom'" /></label>
-            <label class="datef">To <input type="date" v-model="dateTo" class="date" @change="activePreset = 'custom'" /></label>
+            <DatePicker v-model="dateRange" selectionMode="range" :manualInput="false"
+              dateFormat="dd M yy" placeholder="Date range" showButtonBar :numberOfMonths="2" class="dp" />
           </div>
         </div>
         <table class="grid">
@@ -435,6 +445,8 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .seg.presets button:last-child { border-right: none; }
 .seg.presets button.on { background: var(--ember-soft); color: var(--ember); }
+.dp { width: 230px; }
+.dp :deep(.p-datepicker-input), .dp :deep(.p-inputtext) { width: 100%; font-size: 13px; padding: 7px 10px; }
 .tablecount { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
 
 /* Token-usage reseller multi-select */
