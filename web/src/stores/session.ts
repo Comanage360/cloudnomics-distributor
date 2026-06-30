@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { api, setToken, getToken, setUnauthorizedHandler } from "../api";
+import { clearQuoteSession } from "./quote";
 import type { AuthUser } from "../types";
 
 interface JwtPayload { email?: string; company?: string; role?: "admin" | "reseller"; exp?: number }
@@ -49,6 +50,7 @@ export const useSession = defineStore("session", () => {
     setToken(null);
     user.value = null;
     authed.value = false;
+    clearQuoteSession(); // don't leave a draft quote for the next user on this browser
   }
 
   async function login(email: string, password: string) {
