@@ -20,6 +20,9 @@ const loading = ref(false);
 const search = ref("");
 const roleFilter = ref<"all" | "admin" | "reseller">("all");
 const statusFilter = ref<"all" | "draft" | "sent">("all");
+const skuFilter = ref("all");
+const dateFrom = ref("");
+const dateTo = ref("");
 const sortKey = ref("");
 const sortDir = ref<"asc" | "desc">("asc");
 
@@ -54,19 +57,36 @@ const fResellers = computed(() =>
     return m && (roleFilter.value === "all" || r.role === roleFilter.value);
   }))
 );
+// distinct products in the current reseller's quotes (for the product filter)
+const skuOptions = computed(() => [...new Set(quotes.value.map((q) => q.sku).filter((s): s is string => !!s))].sort());
+
 const fQuotes = computed(() =>
   sortRows(quotes.value.filter((q) => {
     const t = term();
     const m = !t || (q.customer_name || "").toLowerCase().includes(t) || String(q.number).includes(t) || (q.sku || "").toLowerCase().includes(t);
-    return m && (statusFilter.value === "all" || q.status === statusFilter.value);
+    if (!m) return false;
+    if (statusFilter.value !== "all" && q.status !== statusFilter.value) return false;
+    if (skuFilter.value !== "all" && q.sku !== skuFilter.value) return false;
+    const ts = Date.parse(q.created_at);
+    if (dateFrom.value && ts < Date.parse(dateFrom.value + "T00:00:00")) return false;
+    if (dateTo.value && ts > Date.parse(dateTo.value + "T23:59:59")) return false;
+    return true;
   }))
 );
+const quoteFiltersActive = computed(() =>
+  !!(search.value || statusFilter.value !== "all" || skuFilter.value !== "all" || dateFrom.value || dateTo.value));
+function clearQuoteFilters() {
+  search.value = ""; statusFilter.value = "all"; skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
+}
 const fUsage = computed(() =>
   sortRows((usage.value?.byReseller || []).filter((u: UsageRow) =>
     !term() || u.reseller_email.toLowerCase().includes(term()) || (u.company || "").toLowerCase().includes(term())))
 );
 
-function resetControls() { search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all"; }
+function resetControls() {
+  search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all";
+  skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
+}
 
 async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { emit("toast", (e as Error).message); } finally { loading.value = false; } }
 async function loadUsage() { try { usage.value = await api.adminUsage(); } catch (e) { emit("toast", (e as Error).message); } }
@@ -180,6 +200,13 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
           </select>
+          <select v-model="skuFilter" class="select">
+            <option value="all">All products</option>
+            <option v-for="s in skuOptions" :key="s" :value="s">{{ s }}</option>
+          </select>
+          <label class="datef">From <input type="date" v-model="dateFrom" class="date" /></label>
+          <label class="datef">To <input type="date" v-model="dateTo" class="date" /></label>
+          <button v-if="quoteFiltersActive" class="link clearf" @click="clearQuoteFilters">Clear filters</button>
           <span class="count">{{ fQuotes.length }} of {{ quotes.length }}</span>
         </div>
         <table class="grid">
@@ -292,6 +319,9 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .search { flex: 1; min-width: 200px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
 .select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); }
 .count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.datef { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.date { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
+.clearf { font-size: 12.5px; }
 .state { padding: 30px; text-align: center; color: var(--muted); }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
