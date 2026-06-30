@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { api } from "../api";
 import { money } from "../theme";
+import Skeleton from "./Skeleton.vue";
 import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
 const emit = defineEmits<{ toast: [msg: string] }>();
@@ -82,6 +83,11 @@ const fUsage = computed(() =>
   sortRows((usage.value?.byReseller || []).filter((u: UsageRow) =>
     !term() || u.reseller_email.toLowerCase().includes(term()) || (u.company || "").toLowerCase().includes(term())))
 );
+// Footer totals across the currently-filtered usage rows.
+const usageTotals = computed(() => {
+  const sum = (k: keyof UsageRow) => fUsage.value.reduce((s, r) => s + Number(r[k] || 0), 0);
+  return { calls: sum("calls"), incomplete: sum("incomplete"), input: sum("input_tokens"), output: sum("output_tokens"), cost: sum("cost_usd") };
+});
 
 function resetControls() {
   search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all";
@@ -164,7 +170,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
           </select>
           <span class="count">{{ fResellers.length }} of {{ resellers.length }}</span>
         </div>
-        <div v-if="loading" class="state">Loading…</div>
+        <Skeleton v-if="loading" :rows="6" />
         <table v-else class="grid">
           <thead><tr>
             <th class="sortable" @click="sort('company')">Company{{ arrow('company') }}</th>
@@ -248,7 +254,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
 
     <!-- Token usage -->
     <section v-else-if="tab === 'usage'">
-      <div v-if="!usage" class="state">Loading…</div>
+      <Skeleton v-if="!usage" :rows="5" />
       <template v-else>
         <div class="cards">
           <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
@@ -284,13 +290,23 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             </tr>
             <tr v-if="!fUsage.length"><td colspan="6" class="muted">No usage recorded yet.</td></tr>
           </tbody>
+          <tfoot v-if="fUsage.length">
+            <tr class="totrow">
+              <td>Total</td>
+              <td class="r mono">{{ usageTotals.calls }}</td>
+              <td class="r mono">{{ usageTotals.incomplete }}</td>
+              <td class="r mono">{{ usageTotals.input.toLocaleString() }}</td>
+              <td class="r mono">{{ usageTotals.output.toLocaleString() }}</td>
+              <td class="r mono strong">{{ cost4(usageTotals.cost) }}</td>
+            </tr>
+          </tfoot>
         </table>
       </template>
     </section>
 
     <!-- Pricing rates -->
     <section v-else>
-      <div v-if="!rates" class="state">Loading…</div>
+      <Skeleton v-if="!rates" :rows="4" />
       <template v-else>
         <p class="hint">Changes apply to every new quote.</p>
         <div class="rateform">
@@ -329,6 +345,11 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .grid th.sortable { cursor: pointer; user-select: none; }
 .grid th.sortable:hover { color: var(--ember); }
 .grid td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.grid thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.grid tbody td { background: var(--surface); }
+.grid tbody tr:nth-child(even) td { background: var(--canvas); }
+.grid tbody tr:hover td { background: var(--ember-soft); }
+.totrow td { border-top: 2px solid var(--ink); border-bottom: none; font-weight: 700; background: var(--surface); }
 .r { text-align: right; white-space: nowrap; }
 .mono { font-family: var(--mono); }
 .strong { font-weight: 700; }
