@@ -51,10 +51,20 @@ async function refreshRecent() {
   try { recent.value = await api.listQuotes(); } catch { /* non-fatal */ }
 }
 
+// Remember which page the user is on so a refresh stays put (not back to the assistant).
+const VIEW_KEY = "cn_view_v1";
+const VIEWS: PortalView[] = ["assistant", "quotes", "renewals", "products", "branding", "admin"];
+watch(view, (v) => { try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } });
+
 onMounted(() => {
   q.init();
   refreshRecent();
   branding.load();
+  // Restore the last page (admin only if the user is actually an admin).
+  try {
+    const saved = localStorage.getItem(VIEW_KEY) as PortalView | null;
+    if (saved && VIEWS.includes(saved) && (saved !== "admin" || session.isAdmin)) view.value = saved;
+  } catch { /* ignore */ }
 });
 
 function navigate(v: PortalView) {
