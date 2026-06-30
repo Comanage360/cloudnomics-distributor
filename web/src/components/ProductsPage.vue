@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "../api";
 import { money } from "../theme";
 import type { Pricelist, Firewall } from "../types";
+import Skeleton from "./Skeleton.vue";
 
 const pricelist = ref<Pricelist | null>(null);
 const loading = ref(true);
@@ -44,7 +45,7 @@ const priceText = (f: Firewall) => (f.list == null ? "On request" : `${money(f.l
       <p>Live Palo Alto Networks catalogue from the Cloudnomics pricelist.</p>
     </div>
 
-    <div v-if="loading" class="state">Loading catalogue…</div>
+    <Skeleton v-if="loading" :rows="8" />
     <div v-else-if="error" class="state err">{{ error }}</div>
 
     <template v-else>
@@ -92,7 +93,9 @@ h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 .group { margin-bottom: 26px; }
 h2 { font-family: var(--display); font-size: 14px; margin: 0 0 8px; color: var(--ember); }
 .grid { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13px; }
-.tablewrap { overflow-x: auto; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.grid tbody tr:nth-child(even) td { background: var(--canvas); }
+.grid tbody tr:hover td { background: var(--ember-soft); }
 @media (max-width: 760px) { .page { padding: 16px; } .xdr { flex-direction: column; align-items: flex-start; gap: 8px; } }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
 .grid td { padding: 10px; border-bottom: 1px solid var(--line); }
