@@ -40,6 +40,10 @@ const usagePage = ref(1);
 // quotes date-range presets
 const activePreset = ref<"1d" | "7d" | "30d" | "custom">("7d");
 
+// token-usage reseller multi-select (empty = all resellers)
+const selectorOpen = ref(false);
+const selectedResellers = ref<string[]>([]);
+
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
@@ -111,9 +115,19 @@ function defaultQuoteFilters() {
 }
 function clearQuoteFilters() { defaultQuoteFilters(); }
 const fUsage = computed(() =>
-  sortRows((usage.value?.byReseller || []).filter((u: UsageRow) =>
-    !term() || u.reseller_email.toLowerCase().includes(term()) || (u.company || "").toLowerCase().includes(term())))
+  sortRows((usage.value?.byReseller || []).filter((u: UsageRow) => {
+    if (selectedResellers.value.length && !selectedResellers.value.includes(u.reseller_email)) return false;
+    const t = term();
+    return !t || u.reseller_email.toLowerCase().includes(t) || (u.company || "").toLowerCase().includes(t);
+  }))
 );
+const resellerOptions = computed(() =>
+  (usage.value?.byReseller || []).map((u) => ({ email: u.reseller_email, label: u.company || u.reseller_email })));
+function toggleReseller(email: string) {
+  const i = selectedResellers.value.indexOf(email);
+  if (i >= 0) selectedResellers.value.splice(i, 1);
+  else selectedResellers.value.push(email);
+}
 // Footer totals across the currently-filtered usage rows.
 const usageTotals = computed(() => {
   const sum = (k: keyof UsageRow) => fUsage.value.reduce((s, r) => s + Number(r[k] || 0), 0);
@@ -133,10 +147,12 @@ const pagedUsage = computed(() => fUsage.value.slice((usagePage.value - 1) * PER
 watch([search, roleFilter, statusFilter, skuFilter, dateFrom, dateTo, drill, sortKey, sortDir], () => {
   resellersPage.value = 1; quotesPage.value = 1; usagePage.value = 1;
 });
+watch(selectedResellers, () => { usagePage.value = 1; }, { deep: true });
 
 function resetControls() {
   search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all";
   skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
+  selectedResellers.value = []; selectorOpen.value = false;
 }
 
 async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { toast.show((e as Error).message); } finally { loading.value = false; } }
@@ -322,12 +338,32 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <section v-else-if="tab === 'usage'">
       <Skeleton v-if="!usage" :rows="5" />
       <template v-else>
+        <div class="usagebar">
+          <div class="reseller-select">
+            <button class="rs-btn" :class="{ on: selectorOpen }" @click="selectorOpen = !selectorOpen">
+              {{ selectedResellers.length ? selectedResellers.length + ' reseller' + (selectedResellers.length > 1 ? 's' : '') + ' selected' : 'All resellers' }}
+              <span class="caret">▾</span>
+            </button>
+            <div v-if="selectorOpen" class="rs-panel">
+              <div class="rs-head">
+                <span>{{ selectedResellers.length || 'All' }} selected</span>
+                <button class="link" :disabled="!selectedResellers.length" @click="selectedResellers = []">All resellers</button>
+              </div>
+              <label v-for="o in resellerOptions" :key="o.email" class="rs-item">
+                <input type="checkbox" :checked="selectedResellers.includes(o.email)" @change="toggleReseller(o.email)" />
+                <span class="rs-text"><span class="rs-name">{{ o.label }}</span><span class="rs-mail">{{ o.email }}</span></span>
+              </label>
+              <div v-if="!resellerOptions.length" class="rs-empty">No resellers yet</div>
+            </div>
+            <div v-if="selectorOpen" class="rs-backdrop" @click="selectorOpen = false" />
+          </div>
+        </div>
         <div class="cards">
-          <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
-          <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usage.overall.calls }}</div></div>
-          <div class="card"><div class="cl">Incomplete</div><div class="cv">{{ usage.overall.incomplete }}</div></div>
-          <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
-          <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
+          <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usageTotals.cost) }}</div></div>
+          <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usageTotals.calls }}</div></div>
+          <div class="card"><div class="cl">Incomplete</div><div class="cv">{{ usageTotals.incomplete }}</div></div>
+          <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ usageTotals.input.toLocaleString() }}</div></div>
+          <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ usageTotals.output.toLocaleString() }}</div></div>
         </div>
         <div class="toolbar">
           <input v-model="search" class="search" placeholder="Search reseller…" />
@@ -413,6 +449,23 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .seg.presets button.on { background: var(--ember-soft); color: var(--ember); }
 .dp { width: 230px; --dp-primary-color: var(--ember); }
 .dp :deep(.dp__input) { border-radius: 8px; border-color: var(--line); font-size: 13px; padding-top: 7px; padding-bottom: 7px; }
+
+/* Token-usage reseller multi-select */
+.usagebar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.reseller-select { position: relative; }
+.rs-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.rs-btn.on, .rs-btn:hover { border-color: var(--ember); color: var(--ember); }
+.rs-btn .caret { color: var(--muted); font-size: 11px; }
+.rs-panel { position: absolute; top: calc(100% + 6px); right: 0; width: 280px; max-height: 320px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(8,12,22,.16); padding: 6px; z-index: 60; }
+.rs-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; font-size: 12px; color: var(--muted); }
+.rs-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.rs-item:hover { background: var(--canvas); }
+.rs-item input { accent-color: var(--ember); width: 15px; height: 15px; flex-shrink: 0; }
+.rs-text { display: flex; flex-direction: column; min-width: 0; }
+.rs-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-mail { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.rs-backdrop { position: fixed; inset: 0; z-index: 55; }
 .state { padding: 30px; text-align: center; color: var(--muted); }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 .grid th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
