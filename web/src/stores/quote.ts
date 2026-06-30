@@ -1,8 +1,13 @@
 import { defineStore } from "pinia";
-import { ref, computed, reactive } from "vue";
+import { ref, computed, reactive, watch } from "vue";
 import { api } from "../api";
 import { computeTotals, DEFAULT_RATES, type Selection } from "../pricing";
 import type { ChatMessage, ChatStatePatch, Firewall, Pricelist, Rates, Step } from "../types";
+
+// Persist the in-progress assistant session so a refresh or a browser tab
+// discard (e.g. switching to the email app on mobile) doesn't lose it.
+const STORAGE_KEY = "cn_quote_session_v1";
+export function clearQuoteSession() { try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } }
 
 let mid = 0;
 const nextId = () => ++mid;
@@ -37,11 +42,45 @@ export const useQuote = defineStore("quote", () => {
     messages.value.push({ id: nextId(), role: "claude", text, card });
   }
 
+  /** Write the current session to localStorage (best-effort). */
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        messages: messages.value, step: step.value, sel: { ...sel },
+        customer: { ...customer }, quoteNumber: quoteNumber.value,
+        sent: sent.value, sessionId: sessionId.value,
+      }));
+    } catch { /* quota/serialization — ignore */ }
+  }
+
+  /** Restore a saved session; returns false if there's nothing usable to restore. */
+  function hydrate(): boolean {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (!Array.isArray(s.messages) || !s.messages.length) return false;
+      messages.value = s.messages;
+      step.value = s.step ?? "intake";
+      Object.assign(sel, s.sel ?? {});
+      Object.assign(customer, s.customer ?? {});
+      quoteNumber.value = s.quoteNumber ?? null;
+      sent.value = !!s.sent;
+      sessionId.value = s.sessionId || newSessionId();
+      mid = messages.value.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
+      return true;
+    } catch { return false; }
+  }
+
   async function init() {
     try { pricelist.value = await api.pricelist(); } catch { /* offline preview still works for firewall list */ }
     try { rates.value = await api.rates(); } catch { /* fall back to default rates */ }
-    reset();
+    // Restore an in-progress session across refresh / tab discard; else start fresh.
+    if (!hydrate()) reset();
   }
+
+  // Save on any change so the session survives the next reload (registers once).
+  watch([messages, step, sel, customer, quoteNumber, sent, sessionId], persist, { deep: true });
 
   function reset() {
     messages.value = [];
