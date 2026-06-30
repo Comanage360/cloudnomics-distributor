@@ -367,7 +367,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         <div class="cards">
           <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usageTotals.cost) }}</div></div>
           <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usageTotals.calls }}</div></div>
-          <div class="card"><div class="cl">Incomplete</div><div class="cv">{{ usageTotals.incomplete }}</div></div>
+          <div class="card"><div class="cl">In progress</div><div class="cv">{{ usageTotals.incomplete }}</div></div>
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ usageTotals.input.toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ usageTotals.output.toLocaleString() }}</div></div>
         </div>
@@ -378,7 +378,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
           <thead><tr>
             <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
             <th class="r sortable" @click="sort('calls')">Quotes{{ arrow('calls') }}</th>
-            <th class="r sortable" @click="sort('incomplete')">Incomplete{{ arrow('incomplete') }}</th>
+            <th class="r sortable" @click="sort('incomplete')">In progress{{ arrow('incomplete') }}</th>
             <th class="r sortable" @click="sort('input_tokens')">Input{{ arrow('input_tokens') }}</th>
             <th class="r sortable" @click="sort('output_tokens')">Output{{ arrow('output_tokens') }}</th>
             <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
