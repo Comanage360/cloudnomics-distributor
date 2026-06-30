@@ -178,6 +178,13 @@ export const useQuote = defineStore("quote", () => {
     if (fw) sel.firewall = fw;
   }
 
+  /** Mark the quote as sent after a custom-email send (composer handles the API). */
+  function noteSent(email?: string) {
+    sent.value = true;
+    step.value = "done";
+    addClaude(`Quote sent to ${email || customer.email} ✓`);
+  }
+
   /** Email the finalized quote to the customer. */
   async function send() {
     addUser("Send the quote");
@@ -195,6 +202,6 @@ export const useQuote = defineStore("quote", () => {
 
   return {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
-    init, reset, sendMessage, setType, setFirewall, send,
+    init, reset, sendMessage, setType, setFirewall, send, noteSent,
   };
 });

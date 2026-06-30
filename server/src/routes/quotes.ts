@@ -127,11 +127,23 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     logoBuffer: logoToBuffer(quote.logo),
   });
 
+  // Optional custom email fields (custom-email composer): to / subject / body / cc.
+  const b = req.body ?? {};
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const to = typeof b.to === "string" && emailRe.test(b.to.trim()) ? b.to.trim() : quote.customer_email;
+  const subject = typeof b.subject === "string" && b.subject.trim() ? b.subject.trim() : undefined;
+  const customBody = typeof b.body === "string" && b.body.trim() ? b.body : undefined;
+  const ccRaw = Array.isArray(b.cc) ? b.cc : typeof b.cc === "string" ? b.cc.split(/[,;]/) : [];
+  const cc = ccRaw.map((s: unknown) => String(s).trim()).filter((e: string) => emailRe.test(e));
+
   const result = await sendQuoteEmail({
-    to: quote.customer_email,
+    to,
     customerName: quote.customer_name || "Customer",
     quoteNumber: number,
     pdf,
+    subject,
+    body: customBody,
+    cc,
   });
   await markSent(number);
   res.json({ sent: true, ...result });

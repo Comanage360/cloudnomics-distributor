@@ -3,8 +3,11 @@ import { computed, ref, watch } from "vue";
 import { useQuote } from "../stores/quote";
 import { money } from "../theme";
 import CalendarBlock from "./CalendarBlock.vue";
+import EmailComposer from "./EmailComposer.vue";
 
 const q = useQuote();
+const composerOpen = ref(false);
+function onEmailSent(to: string) { composerOpen.value = false; q.noteSent(to); }
 const draft = ref("");
 const markupSlider = ref(q.rates.markupDefault);
 watch(() => q.rates.markupDefault, (d) => { markupSlider.value = d; });
@@ -94,13 +97,22 @@ function submitCustomer() {
           start a new session to build another.
         </div>
         <div class="line">
-          <button v-if="!q.sent" class="btn-primary grow" @click="q.send()">
-            Send to {{ q.customer.name || "customer" }}
+          <button v-if="!q.sent && q.quoteNumber" class="btn-primary grow" @click="composerOpen = true">
+            ✉ Email quote
           </button>
-          <div v-else class="sent grow">✓ Sent to {{ q.customer.email }}</div>
+          <div v-else-if="q.sent" class="sent grow">✓ Sent to {{ q.customer.email }}</div>
           <button class="btn-outline grow" @click="q.reset()">↺ New session</button>
         </div>
         <CalendarBlock class="top" />
+
+        <EmailComposer
+          v-if="composerOpen && q.quoteNumber"
+          :quote-number="q.quoteNumber"
+          :to="q.customer.email"
+          :customer-name="q.customer.name"
+          @close="composerOpen = false"
+          @sent="onEmailSent"
+        />
       </div>
 
       <template v-else>
