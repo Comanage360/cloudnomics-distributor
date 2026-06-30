@@ -96,13 +96,12 @@ function submitCustomer() {
           This session created <strong>quote #{{ q.quoteNumber }}</strong>. It's one quote per session —
           start a new session to build another.
         </div>
-        <div class="line">
-          <button v-if="!q.sent && q.quoteNumber" class="btn-primary grow" @click="composerOpen = true">
-            ✉ Email quote
-          </button>
-          <div v-else-if="q.sent" class="sent grow">✓ Sent to {{ q.customer.email }}</div>
-          <button class="btn-outline grow" @click="q.reset()">↺ New session</button>
+        <div v-if="!q.sent && q.quoteNumber" class="line">
+          <button class="btn-primary grow" @click="q.send()">Send default email</button>
+          <button class="btn-outline grow" @click="composerOpen = true">✉ Customize email</button>
         </div>
+        <div v-else-if="q.sent" class="sent">✓ Sent to {{ q.customer.email }}</div>
+        <button class="btn-outline full top" @click="q.reset()">↺ Start a new session</button>
         <CalendarBlock class="top" />
 
         <EmailComposer
