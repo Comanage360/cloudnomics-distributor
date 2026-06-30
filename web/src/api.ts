@@ -87,9 +87,10 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  sendQuote: (number: number) =>
+  sendQuote: (number: number, opts?: { to?: string; cc?: string; subject?: string; body?: string }) =>
     req<{ sent: boolean; dryRun: boolean }>(`/api/quotes/${number}/send`, {
       method: "POST",
+      body: JSON.stringify(opts || {}),
     }),
 
   reminder: (customerName: string, customerEmail: string) =>

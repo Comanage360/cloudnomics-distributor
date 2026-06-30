@@ -7,6 +7,9 @@ export interface SendQuoteInput {
   customerName: string;
   quoteNumber: number;
   pdf: Buffer;
+  subject?: string;  // custom subject (else default)
+  body?: string;     // custom plain-text body (else default)
+  cc?: string[];     // optional CC recipients
 }
 
 const hasSendgrid = () => Boolean(config.sendgrid.apiKey);
@@ -19,10 +22,11 @@ const hasSmtp = () => Boolean(config.smtp.host && config.smtp.user);
  */
 export async function sendQuoteEmail(input: SendQuoteInput) {
   const { to, customerName, quoteNumber, pdf } = input;
-  const subject = `Your quote #${quoteNumber} from Cloudnomics`;
-  const text =
+  const subject = input.subject?.trim() || `Your quote #${quoteNumber} from Cloudnomics`;
+  const text = input.body?.trim() ||
     `Hi ${customerName},\n\nPlease find your quote (#${quoteNumber}) attached.\n\n` +
     `Thank you,\nCloudnomics`;
+  const cc = (input.cc || []).map((c) => c.trim()).filter(Boolean);
   const filename = `quote-${quoteNumber}.pdf`;
 
   // 1) SendGrid Web API
@@ -31,6 +35,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     try {
       const [res] = await sgMail.send({
         to,
+        ...(cc.length ? { cc } : {}),
         from: config.smtp.from, // must be a verified SendGrid sender / domain
         subject,
         text,
@@ -57,6 +62,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     const info = await transport.sendMail({
       from: config.smtp.from,
       to,
+      ...(cc.length ? { cc } : {}),
       subject,
       text,
       attachments: [{ filename, content: pdf }],
@@ -65,6 +71,6 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   }
 
   // 3) Dry-run
-  console.log(`[mailer:dry-run] would email ${to} — quote #${quoteNumber} (${pdf.length} bytes)`);
+  console.log(`[mailer:dry-run] would email ${to}${cc.length ? ` cc ${cc.join(", ")}` : ""} — "${subject}" — quote #${quoteNumber} (${pdf.length} bytes)`);
   return { dryRun: true, messageId: null, provider: "dry-run" };
 }
