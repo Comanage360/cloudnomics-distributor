@@ -2,17 +2,18 @@
 import { ref } from "vue";
 import { useBranding } from "../stores/branding";
 import { useSession } from "../stores/session";
+import { useToast } from "../stores/toast";
 
 const branding = useBranding();
 const session = useSession();
+const toast = useToast();
 const saving = ref(false);
-const emit = defineEmits<{ toast: [msg: string] }>();
 
 function onLogo(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0];
   if (!f) return;
   if (!/^image\/(png|jpeg|jpg)$/.test(f.type)) {
-    emit("toast", "Please upload a PNG or JPEG logo.");
+    toast.show("Please upload a PNG or JPEG logo.");
     return;
   }
   const r = new FileReader();
@@ -26,9 +27,9 @@ async function save() {
     await branding.save(branding.logo, branding.company.trim() || undefined);
     // reflect the new company in the top-bar badge immediately
     if (session.user && branding.company.trim()) session.user.company = branding.company.trim();
-    emit("toast", "✅ Branding saved — it'll appear on every new quote");
+    toast.show("✅ Branding saved — it'll appear on every new quote");
   } catch (e) {
-    emit("toast", `Could not save branding: ${(e as Error).message}`);
+    toast.show(`Could not save branding: ${(e as Error).message}`);
   } finally {
     saving.value = false;
   }

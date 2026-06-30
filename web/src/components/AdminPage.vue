@@ -3,9 +3,10 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "../api";
 import { money } from "../theme";
 import Skeleton from "./Skeleton.vue";
+import { useToast } from "../stores/toast";
 import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
-const emit = defineEmits<{ toast: [msg: string] }>();
+const toast = useToast();
 type Tab = "resellers" | "usage" | "rates";
 const tab = ref<Tab>("resellers");
 
@@ -94,21 +95,21 @@ function resetControls() {
   skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
 }
 
-async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { emit("toast", (e as Error).message); } finally { loading.value = false; } }
-async function loadUsage() { try { usage.value = await api.adminUsage(); } catch (e) { emit("toast", (e as Error).message); } }
-async function loadRates() { try { rates.value = await api.adminRates(); } catch (e) { emit("toast", (e as Error).message); } }
+async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { toast.show((e as Error).message); } finally { loading.value = false; } }
+async function loadUsage() { try { usage.value = await api.adminUsage(); } catch (e) { toast.show((e as Error).message); } }
+async function loadRates() { try { rates.value = await api.adminRates(); } catch (e) { toast.show((e as Error).message); } }
 
 async function openReseller(email: string) {
   resetControls();
   drill.value = email;
-  try { quotes.value = await api.adminQuotes(email); } catch (e) { emit("toast", (e as Error).message); }
+  try { quotes.value = await api.adminQuotes(email); } catch (e) { toast.show((e as Error).message); }
 }
-async function openPdf(n: number, variant: "partner" | "customer" = "customer") { try { window.open(await api.adminQuotePdf(n, variant), "_blank"); } catch (e) { emit("toast", (e as Error).message); } }
+async function openPdf(n: number, variant: "partner" | "customer" = "customer") { try { window.open(await api.adminQuotePdf(n, variant), "_blank"); } catch (e) { toast.show((e as Error).message); } }
 async function saveRates() {
   if (!rates.value) return;
   savingRates.value = true;
-  try { rates.value = await api.adminSaveRates(rates.value); emit("toast", "✅ Rates saved"); }
-  catch (e) { emit("toast", (e as Error).message); }
+  try { rates.value = await api.adminSaveRates(rates.value); toast.show("✅ Rates saved"); }
+  catch (e) { toast.show((e as Error).message); }
   finally { savingRates.value = false; }
 }
 

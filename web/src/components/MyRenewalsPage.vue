@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import EmptyState from "./EmptyState.vue";
-const emit = defineEmits<{ newQuote: [] }>();
+import { useRouter } from "vue-router";
+import { useQuote } from "../stores/quote";
+const router = useRouter();
+const quoteStore = useQuote();
+function newQuote() { quoteStore.reset(); router.push("/"); }
 </script>
 
 <template>
@@ -13,7 +17,7 @@ const emit = defineEmits<{ newQuote: [] }>();
     <div class="center">
       <EmptyState icon="renewals" title="No renewals yet"
         text="When you build a renewal quote, it'll show up here with its expiry date so you can follow up in time.">
-        <button class="btn-primary" @click="emit('newQuote')">+ Build a quote</button>
+        <button class="btn-primary" @click="newQuote">+ Build a quote</button>
       </EmptyState>
     </div>
   </div>
