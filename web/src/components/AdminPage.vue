@@ -62,7 +62,8 @@ const fQuotes = computed(() =>
   }))
 );
 const fUsage = computed(() =>
-  sortRows((usage.value?.byReseller || []).filter((u: UsageRow) => !term() || u.reseller_email.toLowerCase().includes(term())))
+  sortRows((usage.value?.byReseller || []).filter((u: UsageRow) =>
+    !term() || u.reseller_email.toLowerCase().includes(term()) || (u.company || "").toLowerCase().includes(term())))
 );
 
 function resetControls() { search.value = ""; sortKey.value = ""; roleFilter.value = "all"; statusFilter.value = "all"; }
@@ -225,7 +226,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         <div class="cards">
           <div class="card"><div class="cl">Total cost</div><div class="cv">{{ cost4(usage.overall.cost_usd) }}</div></div>
           <div class="card"><div class="cl">Quotes</div><div class="cv">{{ usage.overall.calls }}</div></div>
-          <div class="card"><div class="cl">Sessions</div><div class="cv">{{ usage.overall.sessions }}</div></div>
+          <div class="card"><div class="cl">Incomplete</div><div class="cv">{{ usage.overall.incomplete }}</div></div>
           <div class="card"><div class="cl">Input tokens</div><div class="cv">{{ Number(usage.overall.input_tokens).toLocaleString() }}</div></div>
           <div class="card"><div class="cl">Output tokens</div><div class="cv">{{ Number(usage.overall.output_tokens).toLocaleString() }}</div></div>
         </div>
@@ -235,18 +236,21 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         </div>
         <table class="grid">
           <thead><tr>
-            <th class="sortable" @click="sort('reseller_email')">Reseller{{ arrow('reseller_email') }}</th>
+            <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
             <th class="r sortable" @click="sort('calls')">Quotes{{ arrow('calls') }}</th>
-            <th class="r sortable" @click="sort('sessions')">Sessions{{ arrow('sessions') }}</th>
+            <th class="r sortable" @click="sort('incomplete')">Incomplete{{ arrow('incomplete') }}</th>
             <th class="r sortable" @click="sort('input_tokens')">Input{{ arrow('input_tokens') }}</th>
             <th class="r sortable" @click="sort('output_tokens')">Output{{ arrow('output_tokens') }}</th>
             <th class="r sortable" @click="sort('cost_usd')">Cost{{ arrow('cost_usd') }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="u in fUsage" :key="u.reseller_email">
-              <td>{{ u.reseller_email }}</td>
+              <td>
+                <div class="cname">{{ u.company || "—" }}</div>
+                <div class="cmail">{{ u.reseller_email }}</div>
+              </td>
               <td class="r mono">{{ u.calls }}</td>
-              <td class="r mono">{{ u.sessions }}</td>
+              <td class="r mono">{{ u.incomplete }}</td>
               <td class="r mono">{{ Number(u.input_tokens).toLocaleString() }}</td>
               <td class="r mono">{{ Number(u.output_tokens).toLocaleString() }}</td>
               <td class="r mono strong">{{ cost4(u.cost_usd) }}</td>
@@ -300,6 +304,8 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .strong { font-weight: 700; }
 .muted { color: var(--muted); }
 .nowrap { white-space: nowrap; }
+.cname { font-weight: 600; }
+.cmail { font-size: 11px; color: var(--muted); margin-top: 2px; }
 /* AI token direction: green ↑ for input sent, ember ↓ for output received */
 .tok-in { color: var(--success); }
 .tok-out { color: var(--ember); margin-left: 8px; }

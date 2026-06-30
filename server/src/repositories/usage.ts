@@ -29,8 +29,9 @@ export async function linkUsageToQuote(resellerEmail: string, sessionId: string,
 
 export interface UsageTotals {
   reseller_email: string;
-  calls: number;    // completed quotes (from the quotes table)
-  sessions: number; // distinct AI sessions started (incl. abandoned)
+  company: string | null; // reseller display name
+  calls: number;          // completed quotes (from the quotes table)
+  incomplete: number;     // sessions that used AI but never produced a quote
   input_tokens: string;
   output_tokens: string;
   cost_usd: string;
@@ -38,9 +39,10 @@ export interface UsageTotals {
 
 /**
  * Per-reseller AI usage for admin reporting. Tokens + cost sum across every AI
- * turn in `ai_usage`; `calls` reports the reseller's actual QUOTE count (from
- * the quotes table) since one quote session now spans many AI turns. Resellers
- * who have either quotes or AI usage are included.
+ * turn in `ai_usage`; `calls` is the reseller's QUOTE count (one quote per
+ * session); `incomplete` is the number of distinct sessions that used AI but
+ * never produced a quote (abandoned / in-progress). Resellers with either
+ * quotes or AI usage are included, with their company name.
  */
 export async function usageByReseller(): Promise<UsageTotals[]> {
   const r = await query<UsageTotals>(
@@ -49,29 +51,31 @@ export async function usageByReseller(): Promise<UsageTotals[]> {
                SUM(input_tokens)  AS input_tokens,
                SUM(output_tokens) AS output_tokens,
                SUM(cost_usd)      AS cost_usd,
-               COUNT(DISTINCT session_id) FILTER (WHERE session_id IS NOT NULL) AS sessions
+               COUNT(DISTINCT session_id) FILTER (WHERE session_id IS NOT NULL AND quote_number IS NULL) AS incomplete
           FROM ai_usage GROUP BY reseller_email
      ), q AS (
         SELECT reseller_email, COUNT(*) AS quote_count
           FROM quotes GROUP BY reseller_email
      )
      SELECT COALESCE(u.reseller_email, q.reseller_email) AS reseller_email,
+            r.company AS company,
             COALESCE(q.quote_count, 0)::int AS calls,
-            COALESCE(u.sessions, 0)::int    AS sessions,
+            COALESCE(u.incomplete, 0)::int  AS incomplete,
             COALESCE(u.input_tokens, 0)     AS input_tokens,
             COALESCE(u.output_tokens, 0)    AS output_tokens,
             COALESCE(u.cost_usd, 0)         AS cost_usd
        FROM u FULL OUTER JOIN q ON u.reseller_email = q.reseller_email
+       LEFT JOIN resellers r ON r.email = COALESCE(u.reseller_email, q.reseller_email)
       ORDER BY cost_usd DESC`
   );
   return r.rows;
 }
 
-/** Overall totals: tokens/cost across all AI turns; `calls` = quotes, `sessions` = AI sessions. */
-export async function usageOverall(): Promise<{ calls: number; sessions: number; input_tokens: string; output_tokens: string; cost_usd: string }> {
-  const r = await query<{ calls: number; sessions: number; input_tokens: string; output_tokens: string; cost_usd: string }>(
+/** Overall totals: tokens/cost across all AI turns; `calls` = quotes, `incomplete` = sessions with no quote. */
+export async function usageOverall(): Promise<{ calls: number; incomplete: number; input_tokens: string; output_tokens: string; cost_usd: string }> {
+  const r = await query<{ calls: number; incomplete: number; input_tokens: string; output_tokens: string; cost_usd: string }>(
     `SELECT (SELECT COUNT(*) FROM quotes)::int AS calls,
-            (SELECT COUNT(DISTINCT session_id) FROM ai_usage WHERE session_id IS NOT NULL)::int AS sessions,
+            (SELECT COUNT(DISTINCT session_id) FROM ai_usage WHERE session_id IS NOT NULL AND quote_number IS NULL)::int AS incomplete,
             COALESCE(SUM(input_tokens),0)  AS input_tokens,
             COALESCE(SUM(output_tokens),0) AS output_tokens,
             COALESCE(SUM(cost_usd),0)      AS cost_usd
