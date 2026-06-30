@@ -85,15 +85,16 @@ export interface AdminReseller {
 
 export interface UsageRow {
   reseller_email: string;
-  calls: number;    // completed quotes
-  sessions: number; // AI sessions started (incl. abandoned)
+  company: string | null;
+  calls: number;      // completed quotes
+  incomplete: number; // sessions that used AI but produced no quote
   input_tokens: string;
   output_tokens: string;
   cost_usd: string;
 }
 
 export interface UsageReport {
-  overall: { calls: number; sessions: number; input_tokens: string; output_tokens: string; cost_usd: string };
+  overall: { calls: number; incomplete: number; input_tokens: string; output_tokens: string; cost_usd: string };
   byReseller: UsageRow[];
 }
 
