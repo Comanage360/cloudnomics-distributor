@@ -4,8 +4,6 @@ import { api } from "../api";
 import { money } from "../theme";
 import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
-import { VueDatePicker } from "@vuepic/vue-datepicker";
-import "@vuepic/vue-datepicker/dist/main.css";
 import { useToast } from "../stores/toast";
 import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
 
@@ -55,15 +53,6 @@ function setPreset(days: number, key: "1d" | "7d" | "30d") {
   const from = new Date(); from.setDate(from.getDate() - (days - 1));
   dateFrom.value = isoDate(from); dateTo.value = isoDate(to); activePreset.value = key;
 }
-// single range control (vue-datepicker) bound to the from/to strings
-const dateRange = computed<Date[] | null>({
-  get: () => (dateFrom.value && dateTo.value ? [new Date(dateFrom.value + "T00:00:00"), new Date(dateTo.value + "T00:00:00")] : null),
-  set: (v: Date[] | null) => {
-    if (v && v[0] && v[1]) { dateFrom.value = isoDate(v[0]); dateTo.value = isoDate(v[1]); }
-    else { dateFrom.value = ""; dateTo.value = ""; }
-    activePreset.value = "custom";
-  },
-});
 
 function sort(key: string) {
   if (sortKey.value === key) sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
@@ -286,14 +275,13 @@ function clampRate(f: { key: keyof Rates; max: number }) {
           </select>
           <button v-if="quoteFiltersActive" class="link clearf" @click="clearQuoteFilters">Clear filters</button>
           <div class="rightgroup">
-            <span class="count2">{{ fQuotes.length }} of {{ quotes.length }}</span>
             <div class="seg presets">
               <button :class="{ on: activePreset === '1d' }" @click="setPreset(1, '1d')">1D</button>
               <button :class="{ on: activePreset === '7d' }" @click="setPreset(7, '7d')">7D</button>
               <button :class="{ on: activePreset === '30d' }" @click="setPreset(30, '30d')">30D</button>
             </div>
-            <VueDatePicker v-model="dateRange" range :enable-time-picker="false" auto-apply :clearable="true"
-              format="dd MMM yyyy" placeholder="Date range" :teleport="true" class="dp" />
+            <label class="datef">From <input type="date" v-model="dateFrom" class="date" @change="activePreset = 'custom'" /></label>
+            <label class="datef">To <input type="date" v-model="dateTo" class="date" @change="activePreset = 'custom'" /></label>
           </div>
         </div>
         <table class="grid">
@@ -330,6 +318,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <tr v-if="!fQuotes.length"><td colspan="11" class="muted">No quotes match.</td></tr>
           </tbody>
         </table>
+        <div class="tablecount">{{ fQuotes.length }} of {{ quotes.length }} quotes</div>
         <Pagination v-model:page="quotesPage" :total="fQuotes.length" :per-page="PER_PAGE" />
       </template>
     </section>
@@ -442,13 +431,11 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .date { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
 .clearf { font-size: 12.5px; }
 .rightgroup { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.count2 { font-size: 12px; color: var(--muted); }
 .seg.presets { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .seg.presets button:last-child { border-right: none; }
 .seg.presets button.on { background: var(--ember-soft); color: var(--ember); }
-.dp { width: 230px; --dp-primary-color: var(--ember); }
-.dp :deep(.dp__input) { border-radius: 8px; border-color: var(--line); font-size: 13px; padding-top: 7px; padding-bottom: 7px; }
+.tablecount { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
 
 /* Token-usage reseller multi-select */
 .usagebar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
