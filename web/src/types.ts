@@ -107,6 +107,7 @@ export interface Rates {
   markupDefault: number;
   markupMin: number;
   markupMax: number;
+  tokenLimit: number; // per-reseller AI token cap; 0 = unlimited
 }
 
 export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";

@@ -23,6 +23,7 @@ export const config = {
     markupDefault: Number(process.env.MARKUP_DEFAULT ?? 15),
     markupMin: Number(process.env.MARKUP_MIN ?? 10),
     markupMax: Number(process.env.MARKUP_MAX ?? 20),
+    tokenLimit: Number(process.env.TOKEN_LIMIT ?? 0), // per-reseller AI token cap; 0 = unlimited
     quoteStart: Number(process.env.QUOTE_START ?? 643555),
   },
   smtp: {

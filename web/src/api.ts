@@ -62,7 +62,7 @@ export const api = {
   // One AI advisor turn: send the conversation + current selection state, get
   // back the next reply, a validated state patch, the step, and a done flag.
   chat: (payload: { messages: { role: "user" | "assistant"; text: string }[]; state: ChatStatePatch; sessionId: string }) =>
-    req<{ reply: string; patch: ChatStatePatch; step: Step; done: boolean }>("/api/chat", {
+    req<{ reply: string; patch?: ChatStatePatch; step?: Step; done?: boolean; limited?: boolean }>("/api/chat", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

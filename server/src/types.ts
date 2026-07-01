@@ -29,6 +29,7 @@ export interface Rates {
   markupDefault: number;     // default customer markup % (15)
   markupMin: number;         // markup slider min %
   markupMax: number;         // markup slider max %
+  tokenLimit: number;        // per-reseller AI token cap; 0 = unlimited
 }
 
 export interface QuoteSelection {
