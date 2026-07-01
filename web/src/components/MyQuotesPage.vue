@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState.vue";
 import { useRouter } from "vue-router";
 import { useQuote } from "../stores/quote";
 import { useToast } from "../stores/toast";
+import DatePicker from "primevue/datepicker";
 
 const router = useRouter();
 const quoteStore = useQuote();
@@ -25,6 +26,24 @@ const statusFilter = ref<"all" | "draft" | "sent">("all");
 const skuFilter = ref("all");
 const dateFrom = ref("");
 const dateTo = ref("");
+// preset (1D/7D/30D) + PrimeVue range picker, mirroring the admin usage filter.
+// Default is "all" (no highlight) so every quote shows on load.
+const activePreset = ref<"1d" | "7d" | "30d" | "custom">("custom");
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function setPreset(days: number, key: "1d" | "7d" | "30d") {
+  const to = new Date();
+  const from = new Date(); from.setDate(from.getDate() - (days - 1));
+  dateFrom.value = isoDate(from); dateTo.value = isoDate(to); activePreset.value = key;
+}
+// PrimeVue DatePicker range model ([start, end]) bound to the from/to strings.
+const dateRange = computed<(Date | null)[] | null>({
+  get: () => (dateFrom.value && dateTo.value ? [new Date(dateFrom.value + "T00:00:00"), new Date(dateTo.value + "T00:00:00")] : null),
+  set: (v) => {
+    if (v && v[0] && v[1]) { dateFrom.value = isoDate(v[0]); dateTo.value = isoDate(v[1]); activePreset.value = "custom"; }
+    else if (!v) { dateFrom.value = ""; dateTo.value = ""; activePreset.value = "custom"; }
+    // partial selection ([start, null]) — wait for the end date before filtering
+  },
+});
 
 onMounted(async () => {
   try {
@@ -60,7 +79,8 @@ const fQuotes = computed(() =>
 const filtersActive = computed(() =>
   !!(search.value || statusFilter.value !== "all" || skuFilter.value !== "all" || dateFrom.value || dateTo.value));
 function clearFilters() {
-  search.value = ""; statusFilter.value = "all"; skuFilter.value = "all"; dateFrom.value = ""; dateTo.value = "";
+  search.value = ""; statusFilter.value = "all"; skuFilter.value = "all";
+  dateFrom.value = ""; dateTo.value = ""; activePreset.value = "custom";
 }
 
 async function openPdf(n: number, variant: "partner" | "customer" = "customer") {
@@ -103,10 +123,17 @@ async function openPdf(n: number, variant: "partner" | "customer" = "customer") 
           <option value="all">All products</option>
           <option v-for="s in skuOptions" :key="s" :value="s">{{ s }}</option>
         </select>
-        <label class="datef">From <input type="date" v-model="dateFrom" class="date" /></label>
-        <label class="datef">To <input type="date" v-model="dateTo" class="date" /></label>
         <button v-if="filtersActive" class="link clearf" @click="clearFilters">Clear filters</button>
-        <span class="count">{{ fQuotes.length }} of {{ quotes.length }}</span>
+        <div class="rightgroup">
+          <div class="seg presets">
+            <button :class="{ on: activePreset === '1d' }" @click="setPreset(1, '1d')">1D</button>
+            <button :class="{ on: activePreset === '7d' }" @click="setPreset(7, '7d')">7D</button>
+            <button :class="{ on: activePreset === '30d' }" @click="setPreset(30, '30d')">30D</button>
+          </div>
+          <DatePicker v-model="dateRange" selectionMode="range" :manualInput="false"
+            dateFormat="dd M yy" placeholder="Date range" showButtonBar :numberOfMonths="2" class="dp" />
+          <span class="count">{{ fQuotes.length }} of {{ quotes.length }}</span>
+        </div>
       </div>
 
       <div class="tablewrap">
@@ -160,10 +187,17 @@ h1 { font-family: var(--display); font-size: 20px; margin: 0; }
 
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .search { flex: 1; min-width: 200px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
-.select, .date { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
-.datef { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
 .clearf { font-size: 12.5px; }
-.count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.count { font-size: 12px; color: var(--muted); }
+
+.rightgroup { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seg.presets { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.seg.presets button:last-child { border-right: none; }
+.seg.presets button.on { background: var(--ember-soft); color: var(--ember); }
+.dp { width: 230px; }
+.dp :deep(.p-datepicker-input), .dp :deep(.p-inputtext) { width: 100%; font-size: 13px; padding: 7px 10px; }
 
 .tablewrap { overflow: auto; max-height: calc(100vh - 240px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .grid { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
