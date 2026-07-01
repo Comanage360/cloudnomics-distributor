@@ -27,6 +27,17 @@ export async function linkUsageToQuote(resellerEmail: string, sessionId: string,
   );
 }
 
+/** Total AI tokens (input + output) a reseller has ever consumed — used to
+ *  enforce the admin-set per-reseller token limit before a new advisor turn. */
+export async function resellerTokenTotal(resellerEmail: string): Promise<number> {
+  const r = await query<{ total: string }>(
+    `SELECT COALESCE(SUM(input_tokens + output_tokens), 0) AS total
+       FROM ai_usage WHERE reseller_email = $1`,
+    [resellerEmail]
+  );
+  return Number(r.rows[0]?.total ?? 0);
+}
+
 export interface UsageTotals {
   reseller_email: string;
   company: string | null; // reseller display name

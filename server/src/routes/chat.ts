@@ -2,7 +2,7 @@ import { Router } from "express";
 import { loadPricelist } from "../db.js";
 import { getRates } from "../services/rates.js";
 import { advise, type ChatState, type ChatTurn } from "../services/chatAdvisor.js";
-import { insertUsage } from "../repositories/usage.js";
+import { insertUsage, resellerTokenTotal } from "../repositories/usage.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const chatRouter = Router();
@@ -25,6 +25,23 @@ chatRouter.post("/", requireAuth, async (req, res) => {
 
   const pricelist = await loadPricelist();
   const rates = await getRates();
+
+  // Enforce the admin-set per-reseller AI token limit (0 = unlimited). Once a
+  // reseller is over their cap we stop calling the model — no more tokens are
+  // spent and they can't build/finalize new quotes until an admin raises it.
+  const limit = Number(rates.tokenLimit) || 0;
+  if (limit > 0) {
+    const used = await resellerTokenTotal(req.user!.email).catch(() => 0);
+    if (used >= limit) {
+      return res.json({
+        reply:
+          `You've reached your AI usage limit (${used.toLocaleString()} of ${limit.toLocaleString()} tokens). ` +
+          `Please contact your administrator to raise the limit before creating more quotes.`,
+        limited: true,
+      });
+    }
+  }
+
   const result = await advise(messages, state, pricelist, rates);
 
   // Record token usage + cost per turn (best-effort; never block the response).

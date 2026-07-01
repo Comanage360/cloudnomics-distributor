@@ -196,6 +196,8 @@ const rateFields: { key: keyof Rates; label: string; desc: string; max: number; 
     desc: "Lowest markup a reseller can set on the slider. Percentage." },
   { key: "markupMax", label: "Markup max (%)", max: 100, step: 1,
     desc: "Highest markup a reseller can set on the slider. Percentage." },
+  { key: "tokenLimit", label: "Reseller AI token limit", max: 100_000_000, step: 10_000,
+    desc: "Max total AI tokens a reseller may use before they're blocked from creating new quotes. Whole number — 0 = unlimited." },
 ];
 
 /** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */

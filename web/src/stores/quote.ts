@@ -155,8 +155,11 @@ export const useQuote = defineStore("quote", () => {
         text: m.text,
       }));
       const res = await api.chat({ messages: history, state: snapshot(), sessionId: sessionId.value });
+      // Reseller is over their admin-set AI token limit: show the notice and
+      // leave the flow untouched (no state/step change, no quote created).
+      if (res.limited) { addClaude(res.reply); return; }
       const pickedFw = applyPatch(res.patch || {});
-      step.value = res.step;
+      if (res.step) step.value = res.step;
       addClaude(res.reply, pickedFw && sel.firewall ? { firewall: sel.firewall, users: sel.users } : undefined);
       if (res.done || res.step === "send") await finalize();
     } catch {
