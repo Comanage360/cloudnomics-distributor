@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { api } from "../api";
 import { useToast } from "../stores/toast";
 
-const props = defineProps<{ period: "monthly" | "yearly" | null; used: number; limit: number }>();
+const props = defineProps<{ period: "monthly" | null; used: number; limit: number }>();
 const emit = defineEmits<{ close: []; sent: [] }>();
 
 const toast = useToast();
@@ -32,15 +32,15 @@ async function send() {
     <div class="overlay" @click.self="emit('close')">
       <div class="dialog">
         <div class="dhead">
-          <h3>Request a limit increase</h3>
+          <h3>Ask admin to raise your limit</h3>
           <button class="x" @click="emit('close')" aria-label="Close">✕</button>
         </div>
         <div class="dbody">
           <p v-if="limit" class="ctx">
             You've used <strong>{{ usd(used) }}</strong> of your
-            <strong>{{ usd(limit) }}</strong> {{ period }} limit.
+            <strong>{{ usd(limit) }}</strong> monthly limit.
           </p>
-          <p class="note">Your administrator will be notified and can raise your AI token limit.</p>
+          <p class="note">Your administrator will be notified and can raise your monthly limit.</p>
           <label class="fld"><span>Add a note <em>(optional)</em></span>
             <textarea v-model="reason" rows="4" placeholder="e.g. Working through a batch of quotes this week — could use a higher cap."></textarea>
           </label>

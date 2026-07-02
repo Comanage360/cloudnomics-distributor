@@ -40,13 +40,13 @@ adminRouter.get("/usage", async (_req, res) => {
 adminRouter.get("/rates", async (_req, res) => res.json(await getRates()));
 adminRouter.put("/rates", async (req, res) => {
   const body = req.body ?? {};
-  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly", "costLimitYearly"];
+  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly"];
   const next: Partial<Rates> = {};
   for (const k of keys) if (body[k] !== undefined && !Number.isNaN(Number(body[k]))) next[k] = Number(body[k]);
   res.json(await setRates(next));
 });
 
-/** Set a reseller's per-account $ overrides. Empty/absent value ("" or null)
+/** Set a reseller's per-account $ override. Empty/absent value ("" or null)
  *  clears the override so the reseller inherits the global default. */
 adminRouter.put("/resellers/:email/limits", async (req, res) => {
   const email = String(req.params.email);
@@ -55,7 +55,7 @@ adminRouter.put("/resellers/:email/limits", async (req, res) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; // 2-dp dollars
   };
-  await setResellerLimits(email, parse(req.body?.monthly), parse(req.body?.yearly));
+  await setResellerLimits(email, parse(req.body?.monthly));
   res.json({ ok: true });
 });
 

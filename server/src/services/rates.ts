@@ -11,7 +11,6 @@ const defaults = (): Rates => ({
   markupMin: config.pricing.markupMin,
   markupMax: config.pricing.markupMax,
   costLimitMonthly: config.pricing.costLimitMonthly,
-  costLimitYearly: config.pricing.costLimitYearly,
 });
 
 let cache: Rates | null = null;

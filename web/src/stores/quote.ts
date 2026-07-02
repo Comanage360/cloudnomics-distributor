@@ -21,10 +21,15 @@ export const useQuote = defineStore("quote", () => {
   const messages = ref<ChatMessage[]>([]);
   const step = ref<Step>("intake");
   const thinking = ref(false);
-  // Set when the reseller is blocked by their AI token limit; drives the
-  // "request a limit increase" flow in the composer. Cleared on reset().
+  // Set when the reseller is blocked by their AI spend limit; drives the
+  // "request a limit increase" flow (composer + right panel). Cleared on reset().
   const limited = ref(false);
-  const limitInfo = ref<{ period: "monthly" | "yearly" | null; used: number; limit: number } | null>(null);
+  const limitInfo = ref<{ period: "monthly" | null; used: number; limit: number } | null>(null);
+  const limitRequested = ref(false);   // they already submitted a request (awaiting admin)
+  const limitModalOpen = ref(false);   // the request modal is open
+  function openLimitRequest() { limitModalOpen.value = true; }
+  function closeLimitRequest() { limitModalOpen.value = false; }
+  function markLimitRequested() { limitRequested.value = true; limitModalOpen.value = false; }
 
   const sel = reactive<Selection>({
     firewall: null, users: 200, fwImpl: false,
@@ -53,6 +58,7 @@ export const useQuote = defineStore("quote", () => {
         messages: messages.value, step: step.value, sel: { ...sel },
         customer: { ...customer }, quoteNumber: quoteNumber.value,
         sent: sent.value, sessionId: sessionId.value,
+        limited: limited.value, limitInfo: limitInfo.value, limitRequested: limitRequested.value,
       }));
     } catch { /* quota/serialization — ignore */ }
   }
@@ -70,6 +76,7 @@ export const useQuote = defineStore("quote", () => {
       Object.assign(customer, s.customer ?? {});
       quoteNumber.value = s.quoteNumber ?? null;
       sent.value = !!s.sent;
+      limited.value = !!s.limited; limitInfo.value = s.limitInfo ?? null; limitRequested.value = !!s.limitRequested;
       sessionId.value = s.sessionId || newSessionId();
       mid = messages.value.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
       return true;
@@ -94,7 +101,7 @@ export const useQuote = defineStore("quote", () => {
     sel.competitiveModel = "";
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
-    limited.value = false; limitInfo.value = null;
+    limited.value = false; limitInfo.value = null; limitRequested.value = false; limitModalOpen.value = false;
     sessionId.value = newSessionId(); // a fresh session each new quote
     addClaude('Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.');
   }
@@ -167,8 +174,11 @@ export const useQuote = defineStore("quote", () => {
         limited.value = true;
         limitInfo.value = { period: res.period ?? null, used: res.used ?? 0, limit: res.limit ?? 0 };
         addClaude(res.reply);
+        // Reflect whether they've already got a pending request (survives refresh).
+        try { limitRequested.value = (await api.myLimitRequest()).pending; } catch { /* keep current */ }
         return;
       }
+      limited.value = false; // a normal turn means they're no longer blocked
       const pickedFw = applyPatch(res.patch || {});
       if (res.step) step.value = res.step;
       addClaude(res.reply, pickedFw && sel.firewall ? { firewall: sel.firewall, users: sel.users } : undefined);
@@ -216,7 +226,8 @@ export const useQuote = defineStore("quote", () => {
 
   return {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
-    limited, limitInfo,
+    limited, limitInfo, limitRequested, limitModalOpen,
+    openLimitRequest, closeLimitRequest, markLimitRequested,
     init, reset, sendMessage, setType, setFirewall, send, noteSent,
   };
 });

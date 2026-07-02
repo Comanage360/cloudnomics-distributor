@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { money } from "../theme";
 import Icon from "./Icon.vue";
+import LimitBanner from "./LimitBanner.vue";
 import type { QuoteSummary, QuoteTotals } from "../types";
 
 defineProps<{
@@ -14,6 +15,8 @@ const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [numbe
 
 <template>
   <aside class="rp">
+    <LimitBanner class="rp-banner" />
+
     <section class="sec">
       <h4>Quote summary</h4>
       <template v-if="totals.items.length">
@@ -63,6 +66,7 @@ const emit = defineEmits<{ preview: [mode: "partner" | "customer"]; open: [numbe
 @media (max-width: 760px) {
   .rp { width: 100%; border-left: none; border-top: 1px solid var(--line); overflow-y: visible; }
 }
+.rp-banner { margin: 12px 12px 0; }
 .sec { padding: 14px; border-bottom: 1px solid var(--line); }
 h4 { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin: 0 0 10px; }
 .empty { font-size: 12px; color: var(--muted); }

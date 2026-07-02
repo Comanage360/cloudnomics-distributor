@@ -50,27 +50,23 @@ export interface ResellerSummary {
   last_quote_at: string | null;
   ai_cost: string;
   monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
-  yearly_cost_limit: string | null;
   cost_30d: string;                  // rolling-30d AI spend (USD)
-  cost_365d: string;                 // rolling-365d AI spend (USD)
 }
 
-/** All resellers with quote aggregates + AI spend + spend limits/usage — admin dashboard. */
+/** All resellers with quote aggregates + AI spend + spend limit/usage — admin dashboard. */
 export async function listResellers(): Promise<ResellerSummary[]> {
   const r = await query<ResellerSummary>(
     `SELECT r.email, r.company, r.role,
-            r.monthly_cost_limit, r.yearly_cost_limit,
+            r.monthly_cost_limit,
             COUNT(q.number)::int AS quote_count,
             COALESCE(SUM(q.customer_total), 0) AS total_value,
             MAX(q.created_at) AS last_quote_at,
             COALESCE((SELECT SUM(cost_usd) FROM ai_usage a WHERE a.reseller_email = r.email), 0) AS ai_cost,
             COALESCE((SELECT SUM(cost_usd) FROM ai_usage a
-                       WHERE a.reseller_email = r.email AND a.created_at >= now() - interval '30 days'), 0) AS cost_30d,
-            COALESCE((SELECT SUM(cost_usd) FROM ai_usage a
-                       WHERE a.reseller_email = r.email AND a.created_at >= now() - interval '365 days'), 0) AS cost_365d
+                       WHERE a.reseller_email = r.email AND a.created_at >= now() - interval '30 days'), 0) AS cost_30d
        FROM resellers r
        LEFT JOIN quotes q ON q.reseller_email = r.email
-      GROUP BY r.email, r.company, r.role, r.monthly_cost_limit, r.yearly_cost_limit
+      GROUP BY r.email, r.company, r.role, r.monthly_cost_limit
       ORDER BY total_value DESC`
   );
   return r.rows;
@@ -78,23 +74,22 @@ export async function listResellers(): Promise<ResellerSummary[]> {
 
 export interface ResellerLimitsRow {
   monthly_cost_limit: string | null;
-  yearly_cost_limit: string | null;
 }
 
-/** A reseller's per-account $ overrides (null = inherit the global default). */
+/** A reseller's per-account $ override (null = inherit the global default). */
 export async function getResellerLimits(email: string): Promise<ResellerLimitsRow | null> {
   const r = await query<ResellerLimitsRow>(
-    "SELECT monthly_cost_limit, yearly_cost_limit FROM resellers WHERE email = $1",
+    "SELECT monthly_cost_limit FROM resellers WHERE email = $1",
     [email]
   );
   return r.rows[0] || null;
 }
 
-/** Set a reseller's $ overrides. null clears the override (inherit default). */
-export async function setResellerLimits(email: string, monthly: number | null, yearly: number | null): Promise<void> {
+/** Set a reseller's $ override. null clears the override (inherit default). */
+export async function setResellerLimits(email: string, monthly: number | null): Promise<void> {
   await query(
-    "UPDATE resellers SET monthly_cost_limit = $2, yearly_cost_limit = $3 WHERE email = $1",
-    [email, monthly, yearly]
+    "UPDATE resellers SET monthly_cost_limit = $2 WHERE email = $1",
+    [email, monthly]
   );
 }
 

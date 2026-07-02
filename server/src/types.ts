@@ -30,19 +30,17 @@ export interface Rates {
   markupMin: number;         // markup slider min %
   markupMax: number;         // markup slider max %
   costLimitMonthly: number;  // default AI spend cap (USD) per rolling 30 days; 0 = unlimited
-  costLimitYearly: number;   // default AI spend cap (USD) per rolling 365 days; 0 = unlimited
 }
 
-/** Per-reseller AI spend caps in USD. null = inherit the global default; 0 = unlimited. */
+/** Per-reseller AI spend cap in USD. null = inherit the global default; 0 = unlimited. */
 export interface ResellerLimits {
   monthly: number | null;
-  yearly: number | null;
 }
 
 export interface LimitRequest {
   id: number;
   reseller_email: string;
-  period: "monthly" | "yearly" | null;
+  period: "monthly" | null;
   used: string | null;        // USD
   limit_value: string | null; // USD
   reason: string | null;

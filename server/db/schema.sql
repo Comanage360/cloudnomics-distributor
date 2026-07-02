@@ -35,10 +35,10 @@ CREATE TABLE IF NOT EXISTS resellers (
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS password_hash TEXT;
 -- Reseller vs admin role.
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'reseller';
--- Per-reseller AI spend caps in USD (rolling 30d / 365d). NULL = inherit the
--- global default (settings.rates); 0 = explicitly unlimited; N = cap at $N.
-ALTER TABLE resellers ADD COLUMN IF NOT EXISTS monthly_cost_limit NUMERIC;
-ALTER TABLE resellers ADD COLUMN IF NOT EXISTS yearly_cost_limit  NUMERIC;
+-- Per-reseller AI spend cap in USD (rolling 30 days). New resellers default to
+-- $10; 0 = explicitly unlimited; NULL = fall back to the built-in default.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS monthly_cost_limit NUMERIC DEFAULT 10;
+ALTER TABLE resellers ALTER COLUMN monthly_cost_limit SET DEFAULT 10;
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,

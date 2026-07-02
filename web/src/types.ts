@@ -83,15 +83,13 @@ export interface AdminReseller {
   last_quote_at: string | null;
   ai_cost: string;
   monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
-  yearly_cost_limit: string | null;
   cost_30d: string;                   // rolling-30d AI spend (USD)
-  cost_365d: string;                  // rolling-365d AI spend (USD)
 }
 
 export interface LimitRequest {
   id: number;
   reseller_email: string;
-  period: "monthly" | "yearly" | null;
+  period: "monthly" | null;
   used: string | null;        // USD
   limit_value: string | null; // USD
   reason: string | null;
@@ -124,7 +122,6 @@ export interface Rates {
   markupMin: number;
   markupMax: number;
   costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
-  costLimitYearly: number;  // default rolling-365d AI spend cap (USD); 0 = unlimited
 }
 
 export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";

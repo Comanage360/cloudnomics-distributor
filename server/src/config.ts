@@ -24,7 +24,6 @@ export const config = {
     markupMin: Number(process.env.MARKUP_MIN ?? 10),
     markupMax: Number(process.env.MARKUP_MAX ?? 20),
     costLimitMonthly: Number(process.env.COST_LIMIT_MONTHLY ?? 10), // default rolling-30d AI spend cap (USD); 0 = unlimited
-    costLimitYearly: Number(process.env.COST_LIMIT_YEARLY ?? 0),    // default rolling-365d AI spend cap (USD); 0 = unlimited
     quoteStart: Number(process.env.QUOTE_START ?? 643555),
   },
   smtp: {

@@ -28,6 +28,15 @@ export async function listLimitRequests(): Promise<LimitRequest[]> {
   return r.rows;
 }
 
+/** Whether a reseller currently has an unresolved (pending) request. */
+export async function hasPendingRequest(email: string): Promise<boolean> {
+  const r = await query<{ n: string }>(
+    "SELECT COUNT(*)::int AS n FROM limit_requests WHERE reseller_email = $1 AND status = 'pending'",
+    [email]
+  );
+  return Number(r.rows[0]?.n ?? 0) > 0;
+}
+
 /** Mark a request approved or dismissed. */
 export async function resolveLimitRequest(id: number, status: "approved" | "dismissed"): Promise<void> {
   await query(

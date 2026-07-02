@@ -27,19 +27,17 @@ chatRouter.post("/", requireAuth, async (req, res) => {
   const pricelist = await loadPricelist();
   const rates = await getRates();
 
-  // Enforce the reseller's rolling AI spend limits (monthly = 30d, yearly = 365d;
+  // Enforce the reseller's rolling monthly AI spend limit (last 30 days;
   // per-reseller $ override else global default; 0 = unlimited). Once over, we stop
   // calling the model — no spend incurred — and the client offers a request-increase
-  // flow. `used`/`limit`/`period` (USD) let the UI explain which window was hit.
+  // flow. `used`/`limit` (USD) let the UI explain the cap.
   const status = await evaluateLimit(req.user!.email, rates);
   if (status.blocked) {
-    const windowDays = status.period === "yearly" ? "365" : "30";
     const usd = (n: number) => `$${n.toFixed(2)}`;
     return res.json({
       reply:
-        `You've reached your ${status.period} AI usage limit ` +
-        `(${usd(status.used)} of ${usd(status.limit)} in the last ${windowDays} days). ` +
-        `You can request a higher limit below, or contact your administrator.`,
+        `You've reached your monthly usage limit — ${usd(status.used)} of ${usd(status.limit)} used in the last 30 days. ` +
+        `Use the button to ask your admin to raise it, or contact them directly.`,
       limited: true,
       period: status.period,
       used: status.used,
