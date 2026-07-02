@@ -74,3 +74,39 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   console.log(`[mailer:dry-run] would email ${to}${cc.length ? ` cc ${cc.join(", ")}` : ""} — "${subject}" — quote #${quoteNumber} (${pdf.length} bytes)`);
   return { dryRun: true, messageId: null, provider: "dry-run" };
 }
+
+/** Send a plain-text notification to one or more recipients (no attachment).
+ *  Same provider preference + dry-run fallback as sendQuoteEmail. */
+export async function sendNotification(to: string[], subject: string, text: string) {
+  const recipients = to.map((t) => t.trim()).filter(Boolean);
+  if (!recipients.length) {
+    console.log(`[mailer:dry-run] notification with no recipients — "${subject}"`);
+    return { dryRun: true, provider: "dry-run" };
+  }
+
+  if (hasSendgrid()) {
+    sgMail.setApiKey(config.sendgrid.apiKey);
+    try {
+      await sgMail.send({ to: recipients, from: config.smtp.from, subject, text });
+      return { dryRun: false, provider: "sendgrid" };
+    } catch (e) {
+      const err = e as { response?: { body?: unknown }; message?: string };
+      console.error("[mailer:sendgrid] notification failed:", err.response?.body || err.message);
+      throw new Error("SendGrid send failed");
+    }
+  }
+
+  if (hasSmtp()) {
+    const transport = nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.port === 465,
+      auth: { user: config.smtp.user, pass: config.smtp.pass },
+    });
+    await transport.sendMail({ from: config.smtp.from, to: recipients, subject, text });
+    return { dryRun: false, provider: "smtp" };
+  }
+
+  console.log(`[mailer:dry-run] would notify ${recipients.join(", ")} — "${subject}"\n${text}`);
+  return { dryRun: true, provider: "dry-run" };
+}

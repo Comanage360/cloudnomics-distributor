@@ -6,10 +6,10 @@ import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
 import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
-import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest } from "../types";
 
 const toast = useToast();
-type Tab = "resellers" | "usage" | "rates";
+type Tab = "resellers" | "usage" | "rates" | "limits";
 const tab = ref<Tab>("resellers");
 
 const resellers = ref<AdminReseller[]>([]);
@@ -19,6 +19,11 @@ const usage = ref<UsageReport | null>(null);
 const rates = ref<Rates | null>(null);
 const savingRates = ref(false);
 const loading = ref(false);
+
+// token-limits tab: per-reseller edit buffer + pending requests
+const limitRequests = ref<LimitRequest[]>([]);
+const limitEdits = ref<Record<string, { monthly: string }>>({});
+const savingLimit = ref<string | null>(null);
 
 // search / filter / sort
 const search = ref("");
@@ -45,6 +50,7 @@ const selectedResellers = ref<string[]>([]);
 
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
+const usd2 = (n: string | number) => "$" + (Number(n) || 0).toFixed(2);  // spend limits / usage
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
 const term = () => search.value.trim().toLowerCase();
 
@@ -173,11 +179,84 @@ async function saveRates() {
   finally { savingRates.value = false; }
 }
 
+/** Token-limits tab: needs the reseller list, the global defaults (rates), and
+ *  the pending request queue. Seeds the per-reseller edit buffer from overrides. */
+async function loadLimits() {
+  if (!resellers.value.length) await loadResellers();
+  if (!rates.value) await loadRates();
+  seedLimitEdits();
+  await reloadRequests();
+}
+function seedLimitEdits() {
+  const m: Record<string, { monthly: string }> = {};
+  for (const r of resellers.value) m[r.email] = { monthly: r.monthly_cost_limit ?? "" };
+  limitEdits.value = m;
+}
+async function saveResellerLimit(email: string) {
+  const e = limitEdits.value[email]; if (!e) return;
+  savingLimit.value = email;
+  try {
+    await api.adminSaveResellerLimit(email, { monthly: e.monthly === "" ? null : Number(e.monthly) });
+    const row = resellers.value.find((r) => r.email === email);
+    if (row) row.monthly_cost_limit = e.monthly === "" ? null : e.monthly;
+    toast.show("✅ Limit saved");
+  } catch (err) { toast.show((err as Error).message); }
+  finally { savingLimit.value = null; }
+}
+async function reloadRequests() {
+  try { limitRequests.value = await api.adminLimitRequests(); } catch (e) { toast.show((e as Error).message); }
+}
+// email -> that reseller's pending request (if any), for the per-row button
+const pendingByEmail = computed<Record<string, LimitRequest>>(() => {
+  const m: Record<string, LimitRequest> = {};
+  for (const r of limitRequests.value) if (r.status === "pending" && !m[r.reseller_email]) m[r.reseller_email] = r;
+  return m;
+});
+
+// request-review modal (opened from a reseller's "Pending request" button)
+const reqModal = ref<LimitRequest | null>(null);
+const reqAmount = ref("");          // editable new monthly limit ($)
+const resolvingReq = ref(false);
+function openRequest(email: string) {
+  const rq = pendingByEmail.value[email]; if (!rq) return;
+  const row = resellers.value.find((r) => r.email === email);
+  reqAmount.value = row?.monthly_cost_limit ?? rq.limit_value ?? "";
+  reqModal.value = rq;
+}
+async function approveRequest() {
+  const rq = reqModal.value; if (!rq || resolvingReq.value) return;
+  resolvingReq.value = true;
+  const amount = reqAmount.value === "" ? null : Number(reqAmount.value);
+  try {
+    await api.adminSaveResellerLimit(rq.reseller_email, { monthly: amount });
+    await api.adminResolveLimitRequest(rq.id, "approved");
+    const row = resellers.value.find((r) => r.email === rq.reseller_email);
+    if (row) row.monthly_cost_limit = amount === null ? null : String(amount);
+    if (limitEdits.value[rq.reseller_email]) limitEdits.value[rq.reseller_email].monthly = amount === null ? "" : String(amount);
+    await reloadRequests();
+    toast.show("✅ Approved — new limit set");
+    reqModal.value = null;
+  } catch (e) { toast.show((e as Error).message); }
+  finally { resolvingReq.value = false; }
+}
+async function dismissRequest() {
+  const rq = reqModal.value; if (!rq || resolvingReq.value) return;
+  resolvingReq.value = true;
+  try {
+    await api.adminResolveLimitRequest(rq.id, "dismissed");
+    await reloadRequests();
+    toast.show("Request dismissed");
+    reqModal.value = null;
+  } catch (e) { toast.show((e as Error).message); }
+  finally { resolvingReq.value = false; }
+}
+
 function go(t: Tab) {
   tab.value = t; drill.value = null; resetControls();
   if (t === "resellers" && !resellers.value.length) loadResellers();
   if (t === "usage" && !usage.value) loadUsage();
   if (t === "rates" && !rates.value) loadRates();
+  if (t === "limits") loadLimits();
 }
 onMounted(loadResellers);
 
@@ -196,8 +275,6 @@ const rateFields: { key: keyof Rates; label: string; desc: string; max: number; 
     desc: "Lowest markup a reseller can set on the slider. Percentage." },
   { key: "markupMax", label: "Markup max (%)", max: 100, step: 1,
     desc: "Highest markup a reseller can set on the slider. Percentage." },
-  { key: "tokenLimit", label: "Reseller AI token limit", max: 100_000_000, step: 10_000,
-    desc: "Max total AI tokens a reseller may use before they're blocked from creating new quotes. Whole number — 0 = unlimited." },
 ];
 
 /** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */
@@ -218,6 +295,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <div class="tabs">
       <button :class="{ on: tab === 'resellers' }" @click="go('resellers')">Resellers</button>
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
+      <button :class="{ on: tab === 'limits' }" @click="go('limits')">Usage limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
     </div>
 
@@ -415,6 +493,67 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       </template>
     </section>
 
+    <!-- Usage (spend) limits -->
+    <section v-else-if="tab === 'limits'">
+      <Skeleton v-if="loading && !resellers.length" :rows="6" />
+      <template v-else>
+        <!-- per-reseller spend limits -->
+        <div class="toolbar"><input v-model="search" class="search" placeholder="Search company or email…" /></div>
+        <table class="grid">
+          <thead><tr>
+            <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
+            <th class="r sortable" @click="sort('cost_30d')">Spent (30d){{ arrow('cost_30d') }}</th>
+            <th class="r">Monthly limit ($)</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in pagedResellers" :key="r.email">
+              <td>
+                <div class="cname">{{ r.company || "—" }}</div>
+                <div class="cmail">{{ r.email }}</div>
+              </td>
+              <td class="r mono">{{ usd2(r.cost_30d) }}</td>
+              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="1"
+                v-model="limitEdits[r.email].monthly" :placeholder="rates?.costLimitMonthly ? '$' + rates.costLimitMonthly : 'unlimited'" /></td>
+              <td class="r rowacts">
+                <button class="link" :disabled="savingLimit === r.email" @click="saveResellerLimit(r.email)">{{ savingLimit === r.email ? "Saving…" : "Save" }}</button>
+                <button v-if="pendingByEmail[r.email]" class="btn-pending" @click="openRequest(r.email)">● Pending request</button>
+              </td>
+            </tr>
+            <tr v-if="!fResellers.length"><td colspan="4" class="muted">No resellers match.</td></tr>
+          </tbody>
+        </table>
+        <div class="tablecount">{{ fResellers.length }} of {{ resellers.length }} resellers</div>
+        <Pagination v-model:page="resellersPage" :total="fResellers.length" :per-page="PER_PAGE" />
+        <p class="hint">Amounts are US dollars. New resellers start at $10. 0 = unlimited; blank = inherit the default. Rolling window (last 30 days).</p>
+
+        <!-- request-review modal -->
+        <Teleport to="body">
+          <div v-if="reqModal" class="overlay" @click.self="reqModal = null">
+            <div class="dialog">
+              <div class="dhead">
+                <h3>Limit increase request</h3>
+                <button class="x" @click="reqModal = null" aria-label="Close">✕</button>
+              </div>
+              <div class="dbody">
+                <div class="rrow"><span>Reseller</span><strong>{{ reqModal.reseller_email }}</strong></div>
+                <div class="rrow"><span>Requested on</span><strong>{{ fmtDate(reqModal.created_at) }}</strong></div>
+                <div v-if="reqModal.limit_value != null" class="rrow"><span>Spend vs cap (30d)</span><strong>{{ usd2(reqModal.used || 0) }} / {{ usd2(reqModal.limit_value || 0) }}</strong></div>
+                <div v-if="reqModal.reason" class="rreason">“{{ reqModal.reason }}”</div>
+                <label class="fld"><span>New monthly limit ($) <em>— 0 = unlimited, blank = inherit default</em></span>
+                  <input v-model="reqAmount" type="number" min="0" step="1" placeholder="e.g. 25" />
+                </label>
+              </div>
+              <div class="dfoot">
+                <button class="btn-outline" :disabled="resolvingReq" @click="dismissRequest">Dismiss</button>
+                <button class="btn-primary" :disabled="resolvingReq" @click="approveRequest">{{ resolvingReq ? "Saving…" : "Approve" }}</button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+      </template>
+    </section>
+
     <!-- Pricing rates -->
     <section v-else>
       <Skeleton v-if="!rates" :rows="4" />
@@ -449,6 +588,26 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .datef { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .date { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
 .clearf { font-size: 12.5px; }
+/* token-limits tab */
+.lim { width: 120px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; font-family: var(--mono); text-align: right; }
+.rowacts { display: flex; align-items: center; justify-content: flex-end; gap: 12px; white-space: nowrap; }
+.btn-pending { background: var(--ember-soft); color: var(--ember); border: 1px solid var(--ember); border-radius: 8px; padding: 5px 11px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-pending:hover { background: var(--ember); color: #fff; }
+/* request-review modal */
+.overlay { position: fixed; inset: 0; background: rgba(8,12,22,.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 90; }
+.dialog { width: 100%; max-width: 460px; background: var(--surface); border-radius: 14px; box-shadow: 0 20px 60px rgba(8,12,22,.35); display: flex; flex-direction: column; }
+.dhead { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+.dhead h3 { margin: 0; font-family: var(--display); font-size: 15px; }
+.x { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--muted); }
+.dbody { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.rrow { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.rrow strong { color: var(--text); font-weight: 600; text-align: right; }
+.rreason { font-size: 12.5px; font-style: italic; color: var(--text); background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.fld { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text); margin-top: 4px; }
+.fld em { font-weight: 400; color: var(--muted); font-style: normal; }
+.fld input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: var(--mono); }
+.dfoot { display: flex; justify-content: flex-end; gap: 10px; padding: 13px 18px; border-top: 1px solid var(--line); }
+.dfoot .btn-outline, .dfoot .btn-primary { width: auto; padding: 8px 16px; }
 .rightgroup { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .seg.presets { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }

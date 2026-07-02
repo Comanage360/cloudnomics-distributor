@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS resellers (
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS password_hash TEXT;
 -- Reseller vs admin role.
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'reseller';
+-- Per-reseller AI spend cap in USD (rolling 30 days). New resellers default to
+-- $10; 0 = explicitly unlimited; NULL = fall back to the built-in default.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS monthly_cost_limit NUMERIC DEFAULT 10;
+ALTER TABLE resellers ALTER COLUMN monthly_cost_limit SET DEFAULT 10;
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,
@@ -84,6 +88,20 @@ ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS session_id TEXT;
 -- The advisor session that produced a quote; enforces one quote per session.
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS session_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_quotes_session ON quotes(session_id);
+
+-- Reseller-submitted requests to raise their AI spend limit (admin queue).
+CREATE TABLE IF NOT EXISTS limit_requests (
+  id             SERIAL PRIMARY KEY,
+  reseller_email TEXT NOT NULL,
+  period         TEXT,             -- 'monthly' | 'yearly' — which window was hit
+  used           NUMERIC,          -- USD spent in that window at request time
+  limit_value    NUMERIC,          -- the $ cap they hit
+  reason         TEXT,             -- optional note from the reseller
+  status         TEXT NOT NULL DEFAULT 'pending', -- pending | approved | dismissed
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_limit_requests_status ON limit_requests(status, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_ai_usage_reseller ON ai_usage(reseller_email);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_session ON ai_usage(session_id);

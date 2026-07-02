@@ -82,6 +82,20 @@ export interface AdminReseller {
   total_value: string;
   last_quote_at: string | null;
   ai_cost: string;
+  monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
+  cost_30d: string;                   // rolling-30d AI spend (USD)
+}
+
+export interface LimitRequest {
+  id: number;
+  reseller_email: string;
+  period: "monthly" | null;
+  used: string | null;        // USD
+  limit_value: string | null; // USD
+  reason: string | null;
+  status: "pending" | "approved" | "dismissed";
+  created_at: string;
+  resolved_at: string | null;
 }
 
 export interface UsageRow {
@@ -107,7 +121,7 @@ export interface Rates {
   markupDefault: number;
   markupMin: number;
   markupMax: number;
-  tokenLimit: number; // per-reseller AI token cap; 0 = unlimited
+  costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
 }
 
 export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";

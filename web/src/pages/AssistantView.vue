@@ -10,6 +10,7 @@ import ChatComposer from "../components/ChatComposer.vue";
 import StepTracker from "../components/StepTracker.vue";
 import SummaryPanel from "../components/SummaryPanel.vue";
 import QuotePreview from "../components/QuotePreview.vue";
+import LimitIncreaseComposer from "../components/LimitIncreaseComposer.vue";
 import type { QuoteSummary } from "../types";
 
 const session = useSession();
@@ -57,6 +58,15 @@ watch(() => q.quoteNumber, (n) => { if (n) refreshRecent(); });
     :ready="q.step === 'send' || q.step === 'done'"
     @preview="previewMode = $event"
     @open="openQuotePdf"
+  />
+
+  <LimitIncreaseComposer
+    v-if="q.limitModalOpen"
+    :period="q.limitInfo?.period ?? null"
+    :used="q.limitInfo?.used ?? 0"
+    :limit="q.limitInfo?.limit ?? 0"
+    @close="q.closeLimitRequest()"
+    @sent="q.markLimitRequested()"
   />
 
   <QuotePreview

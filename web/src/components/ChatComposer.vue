@@ -4,6 +4,7 @@ import { useQuote } from "../stores/quote";
 import { money } from "../theme";
 import CalendarBlock from "./CalendarBlock.vue";
 import EmailComposer from "./EmailComposer.vue";
+import LimitBanner from "./LimitBanner.vue";
 
 const q = useQuote();
 const composerOpen = ref(false);
@@ -90,6 +91,9 @@ function submitCustomer() {
 <template>
   <div class="composer">
     <div class="inner">
+      <!-- AI spend limit reached: banner + request-increase flow (blocks new turns) -->
+      <LimitBanner class="cbanner" />
+
       <!-- one quote per session: after creation, send this quote then start a new session -->
       <div v-if="q.step === 'send' || q.step === 'done'">
         <div v-if="q.quoteNumber" class="lock-note">
@@ -183,4 +187,5 @@ select.input { width: 100%; }
 .sent { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }
 .lock-note { font-size: 12.5px; color: var(--muted); background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; line-height: 1.4; }
 .lock-note strong { color: var(--text); }
+.cbanner { margin-bottom: 12px; }
 </style>

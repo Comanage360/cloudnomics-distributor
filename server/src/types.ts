@@ -29,7 +29,24 @@ export interface Rates {
   markupDefault: number;     // default customer markup % (15)
   markupMin: number;         // markup slider min %
   markupMax: number;         // markup slider max %
-  tokenLimit: number;        // per-reseller AI token cap; 0 = unlimited
+  costLimitMonthly: number;  // default AI spend cap (USD) per rolling 30 days; 0 = unlimited
+}
+
+/** Per-reseller AI spend cap in USD. null = inherit the global default; 0 = unlimited. */
+export interface ResellerLimits {
+  monthly: number | null;
+}
+
+export interface LimitRequest {
+  id: number;
+  reseller_email: string;
+  period: "monthly" | null;
+  used: string | null;        // USD
+  limit_value: string | null; // USD
+  reason: string | null;
+  status: "pending" | "approved" | "dismissed";
+  created_at: string;
+  resolved_at: string | null;
 }
 
 export interface QuoteSelection {

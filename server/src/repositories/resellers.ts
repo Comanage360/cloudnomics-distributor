@@ -49,22 +49,48 @@ export interface ResellerSummary {
   total_value: string;
   last_quote_at: string | null;
   ai_cost: string;
+  monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
+  cost_30d: string;                  // rolling-30d AI spend (USD)
 }
 
-/** All resellers with quote aggregates + AI spend — admin dashboard. */
+/** All resellers with quote aggregates + AI spend + spend limit/usage — admin dashboard. */
 export async function listResellers(): Promise<ResellerSummary[]> {
   const r = await query<ResellerSummary>(
     `SELECT r.email, r.company, r.role,
+            r.monthly_cost_limit,
             COUNT(q.number)::int AS quote_count,
             COALESCE(SUM(q.customer_total), 0) AS total_value,
             MAX(q.created_at) AS last_quote_at,
-            COALESCE((SELECT SUM(cost_usd) FROM ai_usage a WHERE a.reseller_email = r.email), 0) AS ai_cost
+            COALESCE((SELECT SUM(cost_usd) FROM ai_usage a WHERE a.reseller_email = r.email), 0) AS ai_cost,
+            COALESCE((SELECT SUM(cost_usd) FROM ai_usage a
+                       WHERE a.reseller_email = r.email AND a.created_at >= now() - interval '30 days'), 0) AS cost_30d
        FROM resellers r
        LEFT JOIN quotes q ON q.reseller_email = r.email
-      GROUP BY r.email, r.company, r.role
+      GROUP BY r.email, r.company, r.role, r.monthly_cost_limit
       ORDER BY total_value DESC`
   );
   return r.rows;
+}
+
+export interface ResellerLimitsRow {
+  monthly_cost_limit: string | null;
+}
+
+/** A reseller's per-account $ override (null = inherit the global default). */
+export async function getResellerLimits(email: string): Promise<ResellerLimitsRow | null> {
+  const r = await query<ResellerLimitsRow>(
+    "SELECT monthly_cost_limit FROM resellers WHERE email = $1",
+    [email]
+  );
+  return r.rows[0] || null;
+}
+
+/** Set a reseller's $ override. null clears the override (inherit default). */
+export async function setResellerLimits(email: string, monthly: number | null): Promise<void> {
+  await query(
+    "UPDATE resellers SET monthly_cost_limit = $2 WHERE email = $1",
+    [email, monthly]
+  );
 }
 
 /** Create a reseller account with a hashed password. No-op if the email exists. */

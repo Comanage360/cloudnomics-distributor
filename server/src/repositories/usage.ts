@@ -27,13 +27,15 @@ export async function linkUsageToQuote(resellerEmail: string, sessionId: string,
   );
 }
 
-/** Total AI tokens (input + output) a reseller has ever consumed — used to
- *  enforce the admin-set per-reseller token limit before a new advisor turn. */
-export async function resellerTokenTotal(resellerEmail: string): Promise<number> {
+/** AI spend (USD) a reseller incurred within the last `days` — used to enforce
+ *  the rolling monthly (30d) / yearly (365d) dollar spend limits. */
+export async function resellerCostSince(resellerEmail: string, days: number): Promise<number> {
   const r = await query<{ total: string }>(
-    `SELECT COALESCE(SUM(input_tokens + output_tokens), 0) AS total
-       FROM ai_usage WHERE reseller_email = $1`,
-    [resellerEmail]
+    `SELECT COALESCE(SUM(cost_usd), 0) AS total
+       FROM ai_usage
+      WHERE reseller_email = $1
+        AND created_at >= now() - ($2 || ' days')::interval`,
+    [resellerEmail, String(days)]
   );
   return Number(r.rows[0]?.total ?? 0);
 }
