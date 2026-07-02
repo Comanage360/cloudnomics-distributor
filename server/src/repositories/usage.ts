@@ -27,11 +27,11 @@ export async function linkUsageToQuote(resellerEmail: string, sessionId: string,
   );
 }
 
-/** AI tokens (input + output) a reseller consumed within the last `days` — used
- *  to enforce the rolling monthly (30d) / yearly (365d) token limits. */
-export async function resellerTokenUsedSince(resellerEmail: string, days: number): Promise<number> {
+/** AI spend (USD) a reseller incurred within the last `days` — used to enforce
+ *  the rolling monthly (30d) / yearly (365d) dollar spend limits. */
+export async function resellerCostSince(resellerEmail: string, days: number): Promise<number> {
   const r = await query<{ total: string }>(
-    `SELECT COALESCE(SUM(input_tokens + output_tokens), 0) AS total
+    `SELECT COALESCE(SUM(cost_usd), 0) AS total
        FROM ai_usage
       WHERE reseller_email = $1
         AND created_at >= now() - ($2 || ' days')::interval`,

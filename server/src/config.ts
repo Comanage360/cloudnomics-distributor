@@ -23,8 +23,8 @@ export const config = {
     markupDefault: Number(process.env.MARKUP_DEFAULT ?? 15),
     markupMin: Number(process.env.MARKUP_MIN ?? 10),
     markupMax: Number(process.env.MARKUP_MAX ?? 20),
-    tokenLimitMonthly: Number(process.env.TOKEN_LIMIT_MONTHLY ?? 1_000_000), // default rolling-30d AI token cap; 0 = unlimited
-    tokenLimitYearly: Number(process.env.TOKEN_LIMIT_YEARLY ?? 0),           // default rolling-365d AI token cap; 0 = unlimited
+    costLimitMonthly: Number(process.env.COST_LIMIT_MONTHLY ?? 10), // default rolling-30d AI spend cap (USD); 0 = unlimited
+    costLimitYearly: Number(process.env.COST_LIMIT_YEARLY ?? 0),    // default rolling-365d AI spend cap (USD); 0 = unlimited
     quoteStart: Number(process.env.QUOTE_START ?? 643555),
   },
   smtp: {

@@ -50,7 +50,7 @@ const selectedResellers = ref<string[]>([]);
 
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
-const nfmt = (n: string | number) => (Number(n) || 0).toLocaleString(); // token counts
+const usd2 = (n: string | number) => "$" + (Number(n) || 0).toFixed(2);  // spend limits / usage
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
 const term = () => search.value.trim().toLowerCase();
 
@@ -189,7 +189,7 @@ async function loadLimits() {
 }
 function seedLimitEdits() {
   const m: Record<string, { monthly: string; yearly: string }> = {};
-  for (const r of resellers.value) m[r.email] = { monthly: r.monthly_token_limit ?? "", yearly: r.yearly_token_limit ?? "" };
+  for (const r of resellers.value) m[r.email] = { monthly: r.monthly_cost_limit ?? "", yearly: r.yearly_cost_limit ?? "" };
   limitEdits.value = m;
 }
 async function saveResellerLimit(email: string) {
@@ -201,7 +201,7 @@ async function saveResellerLimit(email: string) {
       yearly: e.yearly === "" ? null : Number(e.yearly),
     });
     const row = resellers.value.find((r) => r.email === email);
-    if (row) { row.monthly_token_limit = e.monthly === "" ? null : e.monthly; row.yearly_token_limit = e.yearly === "" ? null : e.yearly; }
+    if (row) { row.monthly_cost_limit = e.monthly === "" ? null : e.monthly; row.yearly_cost_limit = e.yearly === "" ? null : e.yearly; }
     toast.show("✅ Limit saved");
   } catch (err) { toast.show((err as Error).message); }
   finally { savingLimit.value = null; }
@@ -256,7 +256,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <div class="tabs">
       <button :class="{ on: tab === 'resellers' }" @click="go('resellers')">Resellers</button>
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
-      <button :class="{ on: tab === 'limits' }" @click="go('limits')">Token limits</button>
+      <button :class="{ on: tab === 'limits' }" @click="go('limits')">Usage limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
     </div>
 
@@ -454,7 +454,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       </template>
     </section>
 
-    <!-- Token limits -->
+    <!-- Usage (spend) limits -->
     <section v-else-if="tab === 'limits'">
       <Skeleton v-if="loading && !resellers.length" :rows="6" />
       <template v-else>
@@ -465,7 +465,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <div class="req-main">
               <div class="cname">{{ rq.reseller_email }}</div>
               <div class="req-meta">
-                <template v-if="rq.period">Hit {{ rq.period }} cap · {{ nfmt(rq.used || 0) }} / {{ nfmt(rq.limit_value || 0) }} tokens · </template>
+                <template v-if="rq.period">Hit {{ rq.period }} cap · {{ usd2(rq.used || 0) }} / {{ usd2(rq.limit_value || 0) }} · </template>
                 {{ fmtDate(rq.created_at) }}
               </div>
               <div v-if="rq.reason" class="req-reason">“{{ rq.reason }}”</div>
@@ -480,13 +480,13 @@ function clampRate(f: { key: keyof Rates; max: number }) {
 
         <!-- global defaults -->
         <div v-if="rates" class="defaults">
-          <h2>Default limits (all resellers)</h2>
-          <p class="hint">Applied to every reseller with no custom value below. Rolling windows; 0 = unlimited.</p>
+          <h2>Default spend limits (all resellers)</h2>
+          <p class="hint">Max AI spend in USD, applied to every reseller with no custom value below. Rolling windows; 0 = unlimited.</p>
           <div class="drow">
-            <label class="dfld"><span>Monthly default (30 days)</span>
-              <input type="number" min="0" step="10000" v-model.number="rates.tokenLimitMonthly" /></label>
-            <label class="dfld"><span>Yearly default (365 days)</span>
-              <input type="number" min="0" step="10000" v-model.number="rates.tokenLimitYearly" /></label>
+            <label class="dfld"><span>Monthly default ($ / 30 days)</span>
+              <input type="number" min="0" step="1" v-model.number="rates.costLimitMonthly" /></label>
+            <label class="dfld"><span>Yearly default ($ / 365 days)</span>
+              <input type="number" min="0" step="1" v-model.number="rates.costLimitYearly" /></label>
             <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save defaults" }}</button>
           </div>
         </div>
@@ -496,10 +496,10 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         <table class="grid">
           <thead><tr>
             <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
-            <th class="r sortable" @click="sort('used_30d')">Used (30d){{ arrow('used_30d') }}</th>
-            <th class="r sortable" @click="sort('used_365d')">Used (365d){{ arrow('used_365d') }}</th>
-            <th class="r">Monthly limit</th>
-            <th class="r">Yearly limit</th>
+            <th class="r sortable" @click="sort('cost_30d')">Spent (30d){{ arrow('cost_30d') }}</th>
+            <th class="r sortable" @click="sort('cost_365d')">Spent (365d){{ arrow('cost_365d') }}</th>
+            <th class="r">Monthly limit ($)</th>
+            <th class="r">Yearly limit ($)</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -508,12 +508,12 @@ function clampRate(f: { key: keyof Rates; max: number }) {
                 <div class="cname">{{ r.company || "—" }}</div>
                 <div class="cmail">{{ r.email }}</div>
               </td>
-              <td class="r mono">{{ nfmt(r.used_30d) }}</td>
-              <td class="r mono">{{ nfmt(r.used_365d) }}</td>
-              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="10000"
-                v-model="limitEdits[r.email].monthly" :placeholder="rates?.tokenLimitMonthly ? nfmt(rates.tokenLimitMonthly) : 'unlimited'" /></td>
-              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="10000"
-                v-model="limitEdits[r.email].yearly" :placeholder="rates?.tokenLimitYearly ? nfmt(rates.tokenLimitYearly) : 'unlimited'" /></td>
+              <td class="r mono">{{ usd2(r.cost_30d) }}</td>
+              <td class="r mono">{{ usd2(r.cost_365d) }}</td>
+              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="1"
+                v-model="limitEdits[r.email].monthly" :placeholder="rates?.costLimitMonthly ? '$' + rates.costLimitMonthly : 'unlimited'" /></td>
+              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="1"
+                v-model="limitEdits[r.email].yearly" :placeholder="rates?.costLimitYearly ? '$' + rates.costLimitYearly : 'unlimited'" /></td>
               <td class="r"><button class="link" :disabled="savingLimit === r.email" @click="saveResellerLimit(r.email)">{{ savingLimit === r.email ? "Saving…" : "Save" }}</button></td>
             </tr>
             <tr v-if="!fResellers.length"><td colspan="6" class="muted">No resellers match.</td></tr>
@@ -521,7 +521,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
         </table>
         <div class="tablecount">{{ fResellers.length }} of {{ resellers.length }} resellers</div>
         <Pagination v-model:page="resellersPage" :total="fResellers.length" :per-page="PER_PAGE" />
-        <p class="hint">Blank = inherit the default. 0 = unlimited. Windows are rolling (last 30 / 365 days).</p>
+        <p class="hint">Amounts are US dollars. Blank = inherit the default; 0 = unlimited. Windows are rolling (last 30 / 365 days).</p>
       </template>
     </section>
 

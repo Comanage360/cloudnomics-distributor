@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { getRates } from "../services/rates.js";
-import { evaluateLimit } from "../services/tokenLimit.js";
+import { evaluateLimit } from "../services/usageLimit.js";
 import { insertLimitRequest } from "../repositories/limitRequests.js";
 import { sendNotification } from "../services/mailer.js";
 import { config } from "../config.js";
@@ -26,15 +26,16 @@ limitsRouter.post("/request-increase", requireAuth, async (req, res) => {
 
   // Notify admins (best-effort — never fail the request if email is down).
   const windowDays = status.period === "yearly" ? "365" : "30";
+  const usd = (n: number) => `$${n.toFixed(2)}`;
   const lines = [
-    `${email} has requested a higher AI token limit.`,
+    `${email} has requested a higher AI spend limit.`,
     status.blocked
-      ? `They hit their ${status.period} cap: ${status.used.toLocaleString()} of ${status.limit.toLocaleString()} tokens in the last ${windowDays} days.`
+      ? `They hit their ${status.period} cap: ${usd(status.used)} of ${usd(status.limit)} in the last ${windowDays} days.`
       : `They are not currently over a limit.`,
     reason ? `\nReason: ${reason}` : "",
-    `\nReview it in the Cloudnomics admin dashboard → Token limits.`,
+    `\nReview it in the Cloudnomics admin dashboard → Usage limits.`,
   ].filter(Boolean);
-  sendNotification(config.adminEmails, `AI token limit increase requested by ${email}`, lines.join("\n"))
+  sendNotification(config.adminEmails, `AI spend limit increase requested by ${email}`, lines.join("\n"))
     .catch((e) => console.error("[limit-request:notify]", e));
 
   res.json({ ok: true, id: request.id });

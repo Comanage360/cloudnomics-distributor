@@ -82,18 +82,18 @@ export interface AdminReseller {
   total_value: string;
   last_quote_at: string | null;
   ai_cost: string;
-  monthly_token_limit: string | null; // per-reseller override; null = inherit default
-  yearly_token_limit: string | null;
-  used_30d: string;                    // rolling-30d AI tokens (in+out)
-  used_365d: string;                   // rolling-365d AI tokens (in+out)
+  monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
+  yearly_cost_limit: string | null;
+  cost_30d: string;                   // rolling-30d AI spend (USD)
+  cost_365d: string;                  // rolling-365d AI spend (USD)
 }
 
 export interface LimitRequest {
   id: number;
   reseller_email: string;
   period: "monthly" | "yearly" | null;
-  used: string | null;
-  limit_value: string | null;
+  used: string | null;        // USD
+  limit_value: string | null; // USD
   reason: string | null;
   status: "pending" | "approved" | "dismissed";
   created_at: string;
@@ -123,8 +123,8 @@ export interface Rates {
   markupDefault: number;
   markupMin: number;
   markupMax: number;
-  tokenLimitMonthly: number; // default rolling-30d AI token cap; 0 = unlimited
-  tokenLimitYearly: number;  // default rolling-365d AI token cap; 0 = unlimited
+  costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
+  costLimitYearly: number;  // default rolling-365d AI spend cap (USD); 0 = unlimited
 }
 
 export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";

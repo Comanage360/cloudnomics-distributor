@@ -10,7 +10,7 @@ const toast = useToast();
 const reason = ref("");
 const sending = ref(false);
 
-const nf = (n: number) => n.toLocaleString();
+const usd = (n: number) => "$" + (n || 0).toFixed(2);
 
 async function send() {
   if (sending.value) return;
@@ -37,8 +37,8 @@ async function send() {
         </div>
         <div class="dbody">
           <p v-if="limit" class="ctx">
-            You've used <strong>{{ nf(used) }}</strong> of your
-            <strong>{{ nf(limit) }}</strong>-token {{ period }} limit.
+            You've used <strong>{{ usd(used) }}</strong> of your
+            <strong>{{ usd(limit) }}</strong> {{ period }} limit.
           </p>
           <p class="note">Your administrator will be notified and can raise your AI token limit.</p>
           <label class="fld"><span>Add a note <em>(optional)</em></span>

@@ -10,8 +10,8 @@ const defaults = (): Rates => ({
   markupDefault: config.pricing.markupDefault,
   markupMin: config.pricing.markupMin,
   markupMax: config.pricing.markupMax,
-  tokenLimitMonthly: config.pricing.tokenLimitMonthly,
-  tokenLimitYearly: config.pricing.tokenLimitYearly,
+  costLimitMonthly: config.pricing.costLimitMonthly,
+  costLimitYearly: config.pricing.costLimitYearly,
 });
 
 let cache: Rates | null = null;

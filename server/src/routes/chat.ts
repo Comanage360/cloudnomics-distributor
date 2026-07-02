@@ -3,7 +3,7 @@ import { loadPricelist } from "../db.js";
 import { getRates } from "../services/rates.js";
 import { advise, type ChatState, type ChatTurn } from "../services/chatAdvisor.js";
 import { insertUsage } from "../repositories/usage.js";
-import { evaluateLimit } from "../services/tokenLimit.js";
+import { evaluateLimit } from "../services/usageLimit.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const chatRouter = Router();
@@ -27,17 +27,18 @@ chatRouter.post("/", requireAuth, async (req, res) => {
   const pricelist = await loadPricelist();
   const rates = await getRates();
 
-  // Enforce the reseller's rolling AI token limits (monthly = 30d, yearly = 365d;
-  // per-reseller override else global default; 0 = unlimited). Once over, we stop
-  // calling the model — no tokens spent — and the client offers a request-increase
-  // flow. `used`/`limit`/`period` let the UI explain which window was hit.
+  // Enforce the reseller's rolling AI spend limits (monthly = 30d, yearly = 365d;
+  // per-reseller $ override else global default; 0 = unlimited). Once over, we stop
+  // calling the model — no spend incurred — and the client offers a request-increase
+  // flow. `used`/`limit`/`period` (USD) let the UI explain which window was hit.
   const status = await evaluateLimit(req.user!.email, rates);
   if (status.blocked) {
     const windowDays = status.period === "yearly" ? "365" : "30";
+    const usd = (n: number) => `$${n.toFixed(2)}`;
     return res.json({
       reply:
         `You've reached your ${status.period} AI usage limit ` +
-        `(${status.used.toLocaleString()} of ${status.limit.toLocaleString()} tokens in the last ${windowDays} days). ` +
+        `(${usd(status.used)} of ${usd(status.limit)} in the last ${windowDays} days). ` +
         `You can request a higher limit below, or contact your administrator.`,
       limited: true,
       period: status.period,
