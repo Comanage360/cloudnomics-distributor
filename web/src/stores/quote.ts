@@ -21,6 +21,10 @@ export const useQuote = defineStore("quote", () => {
   const messages = ref<ChatMessage[]>([]);
   const step = ref<Step>("intake");
   const thinking = ref(false);
+  // Set when the reseller is blocked by their AI token limit; drives the
+  // "request a limit increase" flow in the composer. Cleared on reset().
+  const limited = ref(false);
+  const limitInfo = ref<{ period: "monthly" | "yearly" | null; used: number; limit: number } | null>(null);
 
   const sel = reactive<Selection>({
     firewall: null, users: 200, fwImpl: false,
@@ -90,6 +94,7 @@ export const useQuote = defineStore("quote", () => {
     sel.competitiveModel = "";
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
+    limited.value = false; limitInfo.value = null;
     sessionId.value = newSessionId(); // a fresh session each new quote
     addClaude('Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.');
   }
@@ -155,9 +160,15 @@ export const useQuote = defineStore("quote", () => {
         text: m.text,
       }));
       const res = await api.chat({ messages: history, state: snapshot(), sessionId: sessionId.value });
-      // Reseller is over their admin-set AI token limit: show the notice and
-      // leave the flow untouched (no state/step change, no quote created).
-      if (res.limited) { addClaude(res.reply); return; }
+      // Reseller is over their admin-set AI token limit: show the notice, flag
+      // the blocked state (composer offers a request-increase flow), and leave
+      // the flow untouched (no state/step change, no quote created).
+      if (res.limited) {
+        limited.value = true;
+        limitInfo.value = { period: res.period ?? null, used: res.used ?? 0, limit: res.limit ?? 0 };
+        addClaude(res.reply);
+        return;
+      }
       const pickedFw = applyPatch(res.patch || {});
       if (res.step) step.value = res.step;
       addClaude(res.reply, pickedFw && sel.firewall ? { firewall: sel.firewall, users: sel.users } : undefined);
@@ -205,6 +216,7 @@ export const useQuote = defineStore("quote", () => {
 
   return {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
+    limited, limitInfo,
     init, reset, sendMessage, setType, setFirewall, send, noteSent,
   };
 });

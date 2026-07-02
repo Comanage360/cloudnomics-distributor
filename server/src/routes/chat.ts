@@ -2,7 +2,8 @@ import { Router } from "express";
 import { loadPricelist } from "../db.js";
 import { getRates } from "../services/rates.js";
 import { advise, type ChatState, type ChatTurn } from "../services/chatAdvisor.js";
-import { insertUsage, resellerTokenTotal } from "../repositories/usage.js";
+import { insertUsage } from "../repositories/usage.js";
+import { evaluateLimit } from "../services/tokenLimit.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const chatRouter = Router();
@@ -26,20 +27,23 @@ chatRouter.post("/", requireAuth, async (req, res) => {
   const pricelist = await loadPricelist();
   const rates = await getRates();
 
-  // Enforce the admin-set per-reseller AI token limit (0 = unlimited). Once a
-  // reseller is over their cap we stop calling the model — no more tokens are
-  // spent and they can't build/finalize new quotes until an admin raises it.
-  const limit = Number(rates.tokenLimit) || 0;
-  if (limit > 0) {
-    const used = await resellerTokenTotal(req.user!.email).catch(() => 0);
-    if (used >= limit) {
-      return res.json({
-        reply:
-          `You've reached your AI usage limit (${used.toLocaleString()} of ${limit.toLocaleString()} tokens). ` +
-          `Please contact your administrator to raise the limit before creating more quotes.`,
-        limited: true,
-      });
-    }
+  // Enforce the reseller's rolling AI token limits (monthly = 30d, yearly = 365d;
+  // per-reseller override else global default; 0 = unlimited). Once over, we stop
+  // calling the model — no tokens spent — and the client offers a request-increase
+  // flow. `used`/`limit`/`period` let the UI explain which window was hit.
+  const status = await evaluateLimit(req.user!.email, rates);
+  if (status.blocked) {
+    const windowDays = status.period === "yearly" ? "365" : "30";
+    return res.json({
+      reply:
+        `You've reached your ${status.period} AI usage limit ` +
+        `(${status.used.toLocaleString()} of ${status.limit.toLocaleString()} tokens in the last ${windowDays} days). ` +
+        `You can request a higher limit below, or contact your administrator.`,
+      limited: true,
+      period: status.period,
+      used: status.used,
+      limit: status.limit,
+    });
   }
 
   const result = await advise(messages, state, pricelist, rates);

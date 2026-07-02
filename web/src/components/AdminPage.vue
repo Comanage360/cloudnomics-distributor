@@ -6,10 +6,10 @@ import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
 import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
-import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates } from "../types";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest } from "../types";
 
 const toast = useToast();
-type Tab = "resellers" | "usage" | "rates";
+type Tab = "resellers" | "usage" | "rates" | "limits";
 const tab = ref<Tab>("resellers");
 
 const resellers = ref<AdminReseller[]>([]);
@@ -19,6 +19,11 @@ const usage = ref<UsageReport | null>(null);
 const rates = ref<Rates | null>(null);
 const savingRates = ref(false);
 const loading = ref(false);
+
+// token-limits tab: per-reseller edit buffer + pending requests
+const limitRequests = ref<LimitRequest[]>([]);
+const limitEdits = ref<Record<string, { monthly: string; yearly: string }>>({});
+const savingLimit = ref<string | null>(null);
 
 // search / filter / sort
 const search = ref("");
@@ -45,6 +50,7 @@ const selectedResellers = ref<string[]>([]);
 
 const usd = (n: string | number) => money(Math.round(Number(n) || 0));
 const cost4 = (n: string | number) => "$" + (Number(n) || 0).toFixed(4); // AI cost is sub-cent
+const nfmt = (n: string | number) => (Number(n) || 0).toLocaleString(); // token counts
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("en-US") : "—");
 const term = () => search.value.trim().toLowerCase();
 
@@ -173,11 +179,45 @@ async function saveRates() {
   finally { savingRates.value = false; }
 }
 
+/** Token-limits tab: needs the reseller list, the global defaults (rates), and
+ *  the pending request queue. Seeds the per-reseller edit buffer from overrides. */
+async function loadLimits() {
+  if (!resellers.value.length) await loadResellers();
+  if (!rates.value) await loadRates();
+  seedLimitEdits();
+  try { limitRequests.value = await api.adminLimitRequests(); } catch (e) { toast.show((e as Error).message); }
+}
+function seedLimitEdits() {
+  const m: Record<string, { monthly: string; yearly: string }> = {};
+  for (const r of resellers.value) m[r.email] = { monthly: r.monthly_token_limit ?? "", yearly: r.yearly_token_limit ?? "" };
+  limitEdits.value = m;
+}
+async function saveResellerLimit(email: string) {
+  const e = limitEdits.value[email]; if (!e) return;
+  savingLimit.value = email;
+  try {
+    await api.adminSaveResellerLimit(email, {
+      monthly: e.monthly === "" ? null : Number(e.monthly),
+      yearly: e.yearly === "" ? null : Number(e.yearly),
+    });
+    const row = resellers.value.find((r) => r.email === email);
+    if (row) { row.monthly_token_limit = e.monthly === "" ? null : e.monthly; row.yearly_token_limit = e.yearly === "" ? null : e.yearly; }
+    toast.show("✅ Limit saved");
+  } catch (err) { toast.show((err as Error).message); }
+  finally { savingLimit.value = null; }
+}
+async function resolveRequest(id: number, status: "approved" | "dismissed") {
+  try { await api.adminResolveLimitRequest(id, status); limitRequests.value = await api.adminLimitRequests(); }
+  catch (e) { toast.show((e as Error).message); }
+}
+const pendingRequests = computed(() => limitRequests.value.filter((r) => r.status === "pending"));
+
 function go(t: Tab) {
   tab.value = t; drill.value = null; resetControls();
   if (t === "resellers" && !resellers.value.length) loadResellers();
   if (t === "usage" && !usage.value) loadUsage();
   if (t === "rates" && !rates.value) loadRates();
+  if (t === "limits") loadLimits();
 }
 onMounted(loadResellers);
 
@@ -196,8 +236,6 @@ const rateFields: { key: keyof Rates; label: string; desc: string; max: number; 
     desc: "Lowest markup a reseller can set on the slider. Percentage." },
   { key: "markupMax", label: "Markup max (%)", max: 100, step: 1,
     desc: "Highest markup a reseller can set on the slider. Percentage." },
-  { key: "tokenLimit", label: "Reseller AI token limit", max: 100_000_000, step: 10_000,
-    desc: "Max total AI tokens a reseller may use before they're blocked from creating new quotes. Whole number — 0 = unlimited." },
 ];
 
 /** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */
@@ -218,6 +256,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <div class="tabs">
       <button :class="{ on: tab === 'resellers' }" @click="go('resellers')">Resellers</button>
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
+      <button :class="{ on: tab === 'limits' }" @click="go('limits')">Token limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
     </div>
 
@@ -415,6 +454,77 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       </template>
     </section>
 
+    <!-- Token limits -->
+    <section v-else-if="tab === 'limits'">
+      <Skeleton v-if="loading && !resellers.length" :rows="6" />
+      <template v-else>
+        <!-- pending increase requests -->
+        <div v-if="pendingRequests.length" class="reqbox">
+          <h2>Pending increase requests</h2>
+          <div v-for="rq in pendingRequests" :key="rq.id" class="req">
+            <div class="req-main">
+              <div class="cname">{{ rq.reseller_email }}</div>
+              <div class="req-meta">
+                <template v-if="rq.period">Hit {{ rq.period }} cap · {{ nfmt(rq.used || 0) }} / {{ nfmt(rq.limit_value || 0) }} tokens · </template>
+                {{ fmtDate(rq.created_at) }}
+              </div>
+              <div v-if="rq.reason" class="req-reason">“{{ rq.reason }}”</div>
+            </div>
+            <div class="req-actions">
+              <button class="btn-primary sm" @click="resolveRequest(rq.id, 'approved')">Approve</button>
+              <button class="btn-outline sm" @click="resolveRequest(rq.id, 'dismissed')">Dismiss</button>
+            </div>
+          </div>
+          <p class="hint">Approving marks the request handled — set the reseller's new cap in the table below.</p>
+        </div>
+
+        <!-- global defaults -->
+        <div v-if="rates" class="defaults">
+          <h2>Default limits (all resellers)</h2>
+          <p class="hint">Applied to every reseller with no custom value below. Rolling windows; 0 = unlimited.</p>
+          <div class="drow">
+            <label class="dfld"><span>Monthly default (30 days)</span>
+              <input type="number" min="0" step="10000" v-model.number="rates.tokenLimitMonthly" /></label>
+            <label class="dfld"><span>Yearly default (365 days)</span>
+              <input type="number" min="0" step="10000" v-model.number="rates.tokenLimitYearly" /></label>
+            <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save defaults" }}</button>
+          </div>
+        </div>
+
+        <!-- per-reseller overrides -->
+        <div class="toolbar"><input v-model="search" class="search" placeholder="Search company or email…" /></div>
+        <table class="grid">
+          <thead><tr>
+            <th class="sortable" @click="sort('company')">Reseller{{ arrow('company') }}</th>
+            <th class="r sortable" @click="sort('used_30d')">Used (30d){{ arrow('used_30d') }}</th>
+            <th class="r sortable" @click="sort('used_365d')">Used (365d){{ arrow('used_365d') }}</th>
+            <th class="r">Monthly limit</th>
+            <th class="r">Yearly limit</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in pagedResellers" :key="r.email">
+              <td>
+                <div class="cname">{{ r.company || "—" }}</div>
+                <div class="cmail">{{ r.email }}</div>
+              </td>
+              <td class="r mono">{{ nfmt(r.used_30d) }}</td>
+              <td class="r mono">{{ nfmt(r.used_365d) }}</td>
+              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="10000"
+                v-model="limitEdits[r.email].monthly" :placeholder="rates?.tokenLimitMonthly ? nfmt(rates.tokenLimitMonthly) : 'unlimited'" /></td>
+              <td class="r"><input v-if="limitEdits[r.email]" class="lim" type="number" min="0" step="10000"
+                v-model="limitEdits[r.email].yearly" :placeholder="rates?.tokenLimitYearly ? nfmt(rates.tokenLimitYearly) : 'unlimited'" /></td>
+              <td class="r"><button class="link" :disabled="savingLimit === r.email" @click="saveResellerLimit(r.email)">{{ savingLimit === r.email ? "Saving…" : "Save" }}</button></td>
+            </tr>
+            <tr v-if="!fResellers.length"><td colspan="6" class="muted">No resellers match.</td></tr>
+          </tbody>
+        </table>
+        <div class="tablecount">{{ fResellers.length }} of {{ resellers.length }} resellers</div>
+        <Pagination v-model:page="resellersPage" :total="fResellers.length" :per-page="PER_PAGE" />
+        <p class="hint">Blank = inherit the default. 0 = unlimited. Windows are rolling (last 30 / 365 days).</p>
+      </template>
+    </section>
+
     <!-- Pricing rates -->
     <section v-else>
       <Skeleton v-if="!rates" :rows="4" />
@@ -449,6 +559,23 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .datef { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .date { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); }
 .clearf { font-size: 12.5px; }
+/* token-limits tab */
+.reqbox { background: var(--ember-soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
+.reqbox h2 { margin: 0 0 10px; }
+.req { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.req:first-of-type { border-top: none; }
+.req-main { flex: 1; min-width: 0; }
+.req-meta { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+.req-reason { font-size: 12.5px; color: var(--text); margin-top: 4px; font-style: italic; }
+.req-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-primary.sm, .btn-outline.sm { width: auto; padding: 6px 12px; font-size: 12.5px; }
+.defaults { margin-bottom: 20px; }
+.defaults h2 { margin: 0 0 4px; }
+.drow { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.dfld { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text); }
+.dfld input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; width: 180px; font-family: var(--mono); }
+.drow .save { width: auto; padding: 9px 16px; }
+.lim { width: 120px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; font-family: var(--mono); text-align: right; }
 .rightgroup { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .seg.presets { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg.presets button { padding: 6px 12px; border: none; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }

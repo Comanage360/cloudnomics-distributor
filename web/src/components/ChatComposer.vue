@@ -4,10 +4,13 @@ import { useQuote } from "../stores/quote";
 import { money } from "../theme";
 import CalendarBlock from "./CalendarBlock.vue";
 import EmailComposer from "./EmailComposer.vue";
+import LimitIncreaseComposer from "./LimitIncreaseComposer.vue";
 
 const q = useQuote();
 const composerOpen = ref(false);
 function onEmailSent(to: string) { composerOpen.value = false; q.noteSent(to); }
+const limitOpen = ref(false);
+function onLimitSent() { limitOpen.value = false; }
 const draft = ref("");
 const markupSlider = ref(q.rates.markupDefault);
 watch(() => q.rates.markupDefault, (d) => { markupSlider.value = d; });
@@ -90,6 +93,20 @@ function submitCustomer() {
 <template>
   <div class="composer">
     <div class="inner">
+      <!-- AI token limit reached: offer a request-increase flow (blocks new turns) -->
+      <div v-if="q.limited" class="limitbar">
+        <span class="limit-msg">⚠ You've hit your {{ q.limitInfo?.period || '' }} AI usage limit.</span>
+        <button class="btn-primary" @click="limitOpen = true">📈 Request a limit increase</button>
+      </div>
+      <LimitIncreaseComposer
+        v-if="limitOpen"
+        :period="q.limitInfo?.period ?? null"
+        :used="q.limitInfo?.used ?? 0"
+        :limit="q.limitInfo?.limit ?? 0"
+        @close="limitOpen = false"
+        @sent="onLimitSent"
+      />
+
       <!-- one quote per session: after creation, send this quote then start a new session -->
       <div v-if="q.step === 'send' || q.step === 'done'">
         <div v-if="q.quoteNumber" class="lock-note">
@@ -183,4 +200,7 @@ select.input { width: 100%; }
 .sent { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }
 .lock-note { font-size: 12.5px; color: var(--muted); background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; line-height: 1.4; }
 .lock-note strong { color: var(--text); }
+.limitbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--ember-soft); border: 1px solid var(--ember-line, var(--line)); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.limitbar .limit-msg { flex: 1; min-width: 160px; font-size: 12.5px; font-weight: 600; color: var(--ember); text-transform: capitalize; }
+.limitbar .btn-primary { width: auto; padding: 8px 14px; }
 </style>

@@ -12,6 +12,7 @@ import { chatRouter } from "./routes/chat.js";
 import { calendarRouter } from "./routes/calendar.js";
 import { brandingRouter } from "./routes/branding.js";
 import { ratesRouter } from "./routes/rates.js";
+import { limitsRouter } from "./routes/limits.js";
 import { adminRouter } from "./routes/admin.js";
 
 const app = express();
@@ -28,6 +29,7 @@ app.use("/api/chat", chatRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/branding", brandingRouter);
 app.use("/api/rates", ratesRouter);
+app.use("/api/limits", limitsRouter);
 app.use("/api/admin", adminRouter);
 
 // Single-service deploy (Cloud Run): if a built SPA is present, serve it from

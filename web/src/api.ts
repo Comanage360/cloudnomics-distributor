@@ -1,4 +1,4 @@
-import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, Step, UsageReport } from "./types";
+import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, LimitRequest, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, Step, UsageReport } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -62,9 +62,16 @@ export const api = {
   // One AI advisor turn: send the conversation + current selection state, get
   // back the next reply, a validated state patch, the step, and a done flag.
   chat: (payload: { messages: { role: "user" | "assistant"; text: string }[]; state: ChatStatePatch; sessionId: string }) =>
-    req<{ reply: string; patch?: ChatStatePatch; step?: Step; done?: boolean; limited?: boolean }>("/api/chat", {
+    req<{ reply: string; patch?: ChatStatePatch; step?: Step; done?: boolean; limited?: boolean; period?: "monthly" | "yearly" | null; used?: number; limit?: number }>("/api/chat", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+
+  // Reseller asks their admin to raise their AI token limit (server recomputes context).
+  requestLimitIncrease: (reason: string) =>
+    req<{ ok: boolean; id: number }>("/api/limits/request-increase", {
+      method: "POST",
+      body: JSON.stringify({ reason }),
     }),
 
   nextNumber: () => req<{ number: number }>("/api/quotes/next-number"),
@@ -118,6 +125,17 @@ export const api = {
   adminRates: () => req<Rates>("/api/admin/rates"),
   adminSaveRates: (rates: Partial<Rates>) =>
     req<Rates>("/api/admin/rates", { method: "PUT", body: JSON.stringify(rates) }),
+  adminSaveResellerLimit: (email: string, limits: { monthly: number | null; yearly: number | null }) =>
+    req<{ ok: boolean }>(`/api/admin/resellers/${encodeURIComponent(email)}/limits`, {
+      method: "PUT",
+      body: JSON.stringify(limits),
+    }),
+  adminLimitRequests: () => req<LimitRequest[]>("/api/admin/limit-requests"),
+  adminResolveLimitRequest: (id: number, status: "approved" | "dismissed") =>
+    req<{ ok: boolean }>(`/api/admin/limit-requests/${id}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
   async adminQuotePdf(number: number, variant: "partner" | "customer" = "customer"): Promise<string> {
     const res = await fetch(`${BASE}/api/admin/quotes/${number}/pdf?variant=${variant}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
