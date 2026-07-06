@@ -5,7 +5,7 @@ import type { LineItem, Pricelist, QuoteTotals, Rates } from "./types";
 // the same rates (fetched from /api/rates).
 export const DEFAULT_RATES: Rates = {
   discount: 0.3, competitiveBonus: 0.1, implRate: 0.15, managedRate: 0.15,
-  markupDefault: 15, markupMin: 10, markupMax: 20, costLimitMonthly: 0,
+  markupDefault: 15, markupMin: 10, markupMax: 20, costLimitMonthly: 0, orgMonthlyAiBudget: 0,
 };
 
 const round = (n: number) => Math.round(n);

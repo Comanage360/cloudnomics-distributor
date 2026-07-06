@@ -71,19 +71,22 @@ export const useSession = defineStore("session", () => {
     }
   }
 
+  /** Returns "pending" when the account needs admin approval (no session granted),
+   *  true when signed in (admin self-approve), or false on error. */
   async function register(email: string, password: string, confirmPassword: string, company?: string) {
     error.value = "";
     try {
-      const { token, user: u, emailVerified: ev } = await api.register(email, password, confirmPassword, company);
-      setToken(token);
-      user.value = u;
+      const r = await api.register(email, password, confirmPassword, company);
+      if (r.pending || !r.token || !r.user) return "pending" as const;
+      setToken(r.token);
+      user.value = r.user;
       authed.value = true;
-      emailVerified.value = ev;
+      emailVerified.value = r.emailVerified ?? false;
       scheduleExpiry();
-      return true;
+      return true as const;
     } catch (e) {
       error.value = (e as Error).message;
-      return false;
+      return false as const;
     }
   }
 

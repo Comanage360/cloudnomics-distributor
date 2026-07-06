@@ -48,7 +48,7 @@ export const api = {
     }),
 
   register: (email: string, password: string, confirmPassword: string, company?: string) =>
-    req<AuthResult>("/api/auth/register", {
+    req<Partial<AuthResult> & { pending?: boolean }>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password, confirmPassword, company }),
     }),
@@ -149,6 +149,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(limits),
     }),
+  adminApproveReseller: (email: string) =>
+    req<{ ok: boolean }>(`/api/admin/resellers/${encodeURIComponent(email)}/approve`, { method: "POST", body: "{}" }),
+  adminRejectReseller: (email: string) =>
+    req<{ ok: boolean }>(`/api/admin/resellers/${encodeURIComponent(email)}/reject`, { method: "POST", body: "{}" }),
   adminAuthEvents: (limit = 200) => req<AuthEventRow[]>(`/api/admin/auth-events?limit=${limit}`),
   adminLimitRequests: () => req<LimitRequest[]>("/api/admin/limit-requests"),
   adminResolveLimitRequest: (id: number, status: "approved" | "dismissed") =>

@@ -162,6 +162,15 @@ function resetControls() {
 }
 
 async function loadResellers() { loading.value = true; try { resellers.value = await api.adminResellers(); } catch (e) { toast.show((e as Error).message); } finally { loading.value = false; } }
+const pendingCount = computed(() => resellers.value.filter((r) => !r.approved).length);
+async function approveReseller(email: string) {
+  try { await api.adminApproveReseller(email); const r = resellers.value.find((x) => x.email === email); if (r) r.approved = true; toast.show("✅ Reseller approved"); }
+  catch (e) { toast.show((e as Error).message); }
+}
+async function rejectReseller(email: string) {
+  try { await api.adminRejectReseller(email); resellers.value = resellers.value.filter((x) => x.email !== email); toast.show("Reseller rejected"); }
+  catch (e) { toast.show((e as Error).message); }
+}
 async function loadUsage() { try { usage.value = await api.adminUsage(); } catch (e) { toast.show((e as Error).message); } }
 async function loadRates() { try { rates.value = await api.adminRates(); } catch (e) { toast.show((e as Error).message); } }
 
@@ -326,6 +335,9 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <option value="reseller">Resellers</option>
           </select>
         </div>
+        <div v-if="pendingCount" class="pendbar">
+          ⏳ <strong>{{ pendingCount }}</strong> {{ pendingCount === 1 ? "account is" : "accounts are" }} awaiting approval — review them at the top of the list.
+        </div>
         <Skeleton v-if="loading" :rows="6" />
         <table v-else class="grid">
           <thead><tr>
@@ -343,7 +355,10 @@ function clampRate(f: { key: keyof Rates; max: number }) {
                 <div class="cname">{{ r.company || "—" }}</div>
                 <div class="cmail">{{ r.email }}</div>
               </td>
-              <td><span class="badge" :class="r.role">{{ r.role }}</span></td>
+              <td>
+                <span class="badge" :class="r.role">{{ r.role }}</span>
+                <span v-if="!r.approved" class="badge pending">pending</span>
+              </td>
               <td class="r">
                 <button v-if="r.quote_count" class="link mono" @click="openReseller(r.email)">{{ r.quote_count }}</button>
                 <span v-else class="mono muted">0</span>
@@ -351,7 +366,13 @@ function clampRate(f: { key: keyof Rates; max: number }) {
               <td class="r mono">{{ usd(r.total_value) }}</td>
               <td class="r mono">{{ cost4(r.ai_cost) }}</td>
               <td class="muted">{{ fmtDate(r.last_quote_at) }}</td>
-              <td class="r"><button class="link" :disabled="!r.quote_count" @click="openReseller(r.email)">View quotes →</button></td>
+              <td class="r nowrap">
+                <template v-if="!r.approved">
+                  <button class="btn-approve" @click="approveReseller(r.email)">Approve</button>
+                  <button class="link reject" @click="rejectReseller(r.email)">Reject</button>
+                </template>
+                <button v-else class="link" :disabled="!r.quote_count" @click="openReseller(r.email)">View quotes →</button>
+              </td>
             </tr>
             <tr v-if="!fResellers.length"><td colspan="7" class="muted">No resellers match.</td></tr>
           </tbody>
@@ -513,6 +534,17 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <section v-else-if="tab === 'limits'">
       <Skeleton v-if="loading && !resellers.length" :rows="6" />
       <template v-else>
+        <!-- org-wide AI budget kill-switch -->
+        <div v-if="rates" class="orgbudget">
+          <h2>Org-wide monthly AI budget</h2>
+          <p class="hint">Total AI spend cap across ALL resellers (rolling 30 days). When reached, the assistant is blocked for everyone until you raise it. 0 = off.</p>
+          <div class="drow">
+            <label class="dfld"><span>Monthly budget ($)</span>
+              <input type="number" min="0" step="10" v-model.number="rates.orgMonthlyAiBudget" /></label>
+            <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save budget" }}</button>
+          </div>
+        </div>
+
         <!-- per-reseller spend limits -->
         <div class="toolbar"><input v-model="search" class="search" placeholder="Search company or email…" /></div>
         <table class="grid">
@@ -656,6 +688,18 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .badge.ev-ok { background: var(--success-soft); color: var(--success); }
 .badge.ev-bad { background: var(--ember-soft); color: var(--ember); }
 .badge.ev-neutral { background: var(--canvas); color: var(--muted); }
+.badge.pending { background: var(--ember-soft); color: var(--ember); margin-left: 5px; }
+.pendbar { background: var(--ember-soft); border: 1px solid var(--ember-line, var(--line)); color: var(--ember); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; font-size: 12.5px; }
+.btn-approve { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; margin-right: 8px; }
+.btn-approve:hover { opacity: .9; }
+.reject { color: var(--muted); }
+.reject:hover { color: var(--ember); }
+.orgbudget { margin-bottom: 22px; }
+.orgbudget h2 { margin: 0 0 4px; font-size: 14px; }
+.drow { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.dfld { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text); }
+.dfld input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; width: 160px; font-family: var(--mono); }
+.drow .save { width: auto; padding: 9px 16px; }
 
 /* Token-usage reseller multi-select */
 .usagebar { display: flex; justify-content: flex-end; margin-bottom: 12px; }

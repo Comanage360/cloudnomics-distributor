@@ -2,7 +2,8 @@ import { query } from "../db.js";
 
 export type AuthEvent =
   | "signup" | "login" | "login_failed"
-  | "verify_sent" | "verify_ok" | "reset_requested" | "reset_ok" | "rate_limited";
+  | "verify_sent" | "verify_ok" | "reset_requested" | "reset_ok" | "rate_limited"
+  | "approved" | "rejected";
 
 export interface AuthEventInput {
   email?: string | null;

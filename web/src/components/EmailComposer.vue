@@ -55,7 +55,7 @@ async function send() {
           <label class="fld"><span>To</span>
             <input v-model="toAddr" type="email" :class="{ invalid: toAddr && !emailOk(toAddr) }" placeholder="customer@example.com" />
           </label>
-          <label class="fld"><span>CC <em>(comma-separated, optional)</em></span>
+          <label class="fld"><span>CC <em>(comma-separated, optional — up to 5)</em></span>
             <input v-model="cc" type="text" placeholder="manager@yourco.com, ops@yourco.com" />
           </label>
           <label class="fld"><span>Subject</span>

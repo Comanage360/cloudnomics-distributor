@@ -11,6 +11,7 @@ const pw = ref("");
 const pw2 = ref("");
 const company = ref("");
 const busy = ref(false);
+const pending = ref(false); // shown after a signup that needs admin approval
 
 const isRegister = computed(() => mode.value === "register");
 const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()));
@@ -25,7 +26,8 @@ async function submit() {
   if (!valid.value || busy.value) return;
   busy.value = true;
   if (isRegister.value) {
-    await session.register(email.value.trim(), pw.value, pw2.value, company.value.trim() || undefined);
+    const r = await session.register(email.value.trim(), pw.value, pw2.value, company.value.trim() || undefined);
+    if (r === "pending") pending.value = true;
   } else {
     await session.login(email.value.trim(), pw.value);
   }
@@ -37,6 +39,12 @@ function toggle() {
   session.error = "";
   pw2.value = "";
 }
+function backToLogin() {
+  pending.value = false;
+  mode.value = "login";
+  session.error = "";
+  pw.value = ""; pw2.value = "";
+}
 </script>
 
 <template>
@@ -44,6 +52,14 @@ function toggle() {
     <div class="wrap">
       <div class="card">
         <img src="/cloudnomics-mark.svg" alt="Cloudnomics" class="brand-logo" />
+
+        <template v-if="pending">
+          <h1>Account created ✓</h1>
+          <p class="sub">Thanks for registering. Your account is <strong>pending admin approval</strong> — we'll email <strong>{{ email }}</strong> as soon as it's approved, then you can sign in.</p>
+          <button class="btn-primary full" @click="backToLogin">Back to sign in</button>
+        </template>
+
+        <template v-else>
         <h1>{{ isRegister ? "Create your account" : "Reseller sign in" }}</h1>
         <p class="sub">Build expert Palo Alto Networks quotes — no expertise required.</p>
 
@@ -82,6 +98,7 @@ function toggle() {
         </div>
 
         <div class="foot">Powered by Cloudnomics · Authorized Palo Alto distributor</div>
+        </template>
       </div>
     </div>
   </div>

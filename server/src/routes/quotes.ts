@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { config } from "../config.js";
 import { loadPricelist } from "../db.js";
 import { buildQuote } from "../services/pricing.js";
 import { renderQuotePdf } from "../services/pdf.js";
@@ -9,6 +10,7 @@ import {
 } from "../repositories/quotes.js";
 import { getReseller } from "../repositories/resellers.js";
 import { linkUsageToQuote } from "../repositories/usage.js";
+import { countEmailSendsSince, logEmailSend } from "../repositories/emailSends.js";
 import { getRates } from "../services/rates.js";
 import type { QuoteSelection } from "../types.js";
 
@@ -111,9 +113,31 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
   const quote = await getQuote(number, req.user!.email);
   if (!quote) return res.status(404).json({ error: "Quote not found" });
 
+  // Optional custom email fields (custom-email composer): to / subject / body / cc.
+  const b = req.body ?? {};
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const toCandidate = (typeof b.to === "string" && b.to.trim()) ? b.to.trim() : (quote.customer_email || "");
+  // Guardrail: must have a valid recipient.
+  if (!emailRe.test(toCandidate)) {
+    return res.status(400).json({ error: "A valid recipient email address is required." });
+  }
+  const to = toCandidate;
+  const subject = typeof b.subject === "string" && b.subject.trim() ? b.subject.trim() : undefined;
+  const customBody = typeof b.body === "string" && b.body.trim() ? b.body : undefined;
+  const ccRaw = Array.isArray(b.cc) ? b.cc : typeof b.cc === "string" ? b.cc.split(/[,;]/) : [];
+  const cc = ccRaw.map((s: unknown) => String(s).trim()).filter((e: string) => emailRe.test(e));
+  // Guardrail: cap CC recipients (anti-spam / domain-reputation protection).
+  if (cc.length > config.emailCcMax) {
+    return res.status(400).json({ error: `You can CC at most ${config.emailCcMax} recipients.` });
+  }
+  // Guardrail: per-reseller daily send cap.
+  const sentToday = await countEmailSendsSince(req.user!.email, 24);
+  if (sentToday >= config.emailDailyLimit) {
+    return res.status(429).json({ error: `Daily email limit reached (${config.emailDailyLimit}/day). Please try again tomorrow.` });
+  }
+
   const pricelist = await loadPricelist();
   const totals = buildQuote(quote.selection, pricelist, await getRates());
-
   const pdf = await renderQuotePdf({
     quoteNumber: number,
     totals,
@@ -122,15 +146,6 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     resellerCompany: (await getReseller(req.user!.email))?.company || req.user!.company,
     logoBuffer: logoToBuffer(quote.logo),
   });
-
-  // Optional custom email fields (custom-email composer): to / subject / body / cc.
-  const b = req.body ?? {};
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const to = typeof b.to === "string" && emailRe.test(b.to.trim()) ? b.to.trim() : quote.customer_email;
-  const subject = typeof b.subject === "string" && b.subject.trim() ? b.subject.trim() : undefined;
-  const customBody = typeof b.body === "string" && b.body.trim() ? b.body : undefined;
-  const ccRaw = Array.isArray(b.cc) ? b.cc : typeof b.cc === "string" ? b.cc.split(/[,;]/) : [];
-  const cc = ccRaw.map((s: unknown) => String(s).trim()).filter((e: string) => emailRe.test(e));
 
   const result = await sendQuoteEmail({
     to,
@@ -142,5 +157,6 @@ quotesRouter.post("/:number/send", requireAuth, async (req, res) => {
     cc,
   });
   await markSent(number);
+  logEmailSend(req.user!.email, to, cc.length).catch((e) => console.error("[email_sends]", e));
   res.json({ sent: true, ...result });
 });

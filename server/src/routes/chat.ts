@@ -4,6 +4,7 @@ import { getRates } from "../services/rates.js";
 import { advise, type ChatState, type ChatTurn } from "../services/chatAdvisor.js";
 import { insertUsage } from "../repositories/usage.js";
 import { evaluateLimit } from "../services/usageLimit.js";
+import { checkOrgBudget } from "../services/orgBudget.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const chatRouter = Router();
@@ -42,6 +43,17 @@ chatRouter.post("/", requireAuth, async (req, res) => {
       period: status.period,
       used: status.used,
       limit: status.limit,
+    });
+  }
+
+  // Org-wide AI budget kill-switch: once total platform spend hits the admin-set
+  // ceiling, block ALL AI (no model call) until it's raised or spend rolls off.
+  const org = await checkOrgBudget(rates);
+  if (org.over) {
+    return res.json({
+      reply: "The platform's monthly AI budget has been reached. Please contact your administrator — the assistant will be available again once it's raised.",
+      limited: true,
+      orgBudget: true,
     });
   }
 

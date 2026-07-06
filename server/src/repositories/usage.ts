@@ -27,6 +27,17 @@ export async function linkUsageToQuote(resellerEmail: string, sessionId: string,
   );
 }
 
+/** Total AI spend (USD) across ALL resellers within the last `days` — powers the
+ *  org-wide budget kill-switch. */
+export async function orgCostSince(days: number): Promise<number> {
+  const r = await query<{ total: string }>(
+    `SELECT COALESCE(SUM(cost_usd), 0) AS total
+       FROM ai_usage WHERE created_at >= now() - ($1 || ' days')::interval`,
+    [String(days)]
+  );
+  return Number(r.rows[0]?.total ?? 0);
+}
+
 /** AI spend (USD) a reseller incurred within the last `days` — used to enforce
  *  the rolling monthly (30d) / yearly (365d) dollar spend limits. */
 export async function resellerCostSince(resellerEmail: string, days: number): Promise<number> {

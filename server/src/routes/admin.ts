@@ -1,11 +1,13 @@
 import { Router } from "express";
+import { config } from "../config.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { loadPricelist } from "../db.js";
-import { listResellers, getReseller, setResellerLimits } from "../repositories/resellers.js";
+import { listResellers, getReseller, setResellerLimits, setApproved, deleteReseller, getResellerCredentials } from "../repositories/resellers.js";
 import { listAllQuotes, getQuoteAny } from "../repositories/quotes.js";
 import { usageByReseller, usageOverall } from "../repositories/usage.js";
 import { listLimitRequests, resolveLimitRequest } from "../repositories/limitRequests.js";
-import { listAuthEvents } from "../repositories/authEvents.js";
+import { listAuthEvents, logAuthEvent } from "../repositories/authEvents.js";
+import { sendApprovalEmail } from "../services/mailer.js";
 import { getRates, setRates } from "../services/rates.js";
 import { buildQuote } from "../services/pricing.js";
 import { renderQuotePdf } from "../services/pdf.js";
@@ -41,7 +43,7 @@ adminRouter.get("/usage", async (_req, res) => {
 adminRouter.get("/rates", async (_req, res) => res.json(await getRates()));
 adminRouter.put("/rates", async (req, res) => {
   const body = req.body ?? {};
-  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly"];
+  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly", "orgMonthlyAiBudget"];
   const next: Partial<Rates> = {};
   for (const k of keys) if (body[k] !== undefined && !Number.isNaN(Number(body[k]))) next[k] = Number(body[k]);
   res.json(await setRates(next));
@@ -57,6 +59,26 @@ adminRouter.put("/resellers/:email/limits", async (req, res) => {
     return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; // 2-dp dollars
   };
   await setResellerLimits(email, parse(req.body?.monthly));
+  res.json({ ok: true });
+});
+
+/** Approve a pending reseller so they can sign in; emails them the good news. */
+adminRouter.post("/resellers/:email/approve", async (req, res) => {
+  const email = String(req.params.email).trim().toLowerCase();
+  await setApproved(email, true);
+  const url = `${config.appUrl}/login`;
+  sendApprovalEmail(email, url).catch((e) => console.error("[mailer:approval]", e));
+  logAuthEvent({ email, event: "approved", ip: req.ip ?? null, userAgent: (req.headers["user-agent"] as string) || null });
+  res.json({ ok: true });
+});
+
+/** Reject (delete) a still-pending reseller account. Refuses if already approved. */
+adminRouter.post("/resellers/:email/reject", async (req, res) => {
+  const email = String(req.params.email).trim().toLowerCase();
+  const cred = await getResellerCredentials(email);
+  if (cred?.approved) return res.status(409).json({ error: "Account is already approved" });
+  await deleteReseller(email);
+  logAuthEvent({ email, event: "rejected", ip: req.ip ?? null, userAgent: (req.headers["user-agent"] as string) || null });
   res.json({ ok: true });
 });
 

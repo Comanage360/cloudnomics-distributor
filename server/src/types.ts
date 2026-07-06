@@ -30,6 +30,7 @@ export interface Rates {
   markupMin: number;         // markup slider min %
   markupMax: number;         // markup slider max %
   costLimitMonthly: number;  // default AI spend cap (USD) per rolling 30 days; 0 = unlimited
+  orgMonthlyAiBudget: number; // org-wide AI spend ceiling (USD) per rolling 30 days; 0 = off
 }
 
 /** Per-reseller AI spend cap in USD. null = inherit the global default; 0 = unlimited. */
