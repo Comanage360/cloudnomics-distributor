@@ -234,3 +234,27 @@ export function sendPasswordResetEmail(to: string, resetUrl: string) {
   });
   return sendEmail(to, "Reset your Cloudnomics password", html, text);
 }
+
+/** Sent on signup while the account awaits admin approval. */
+export function sendPendingApprovalEmail(to: string, company: string) {
+  const { html, text } = renderBrandedEmail({
+    heading: `Thanks for registering, ${company}`,
+    intro:
+      "Your Cloudnomics reseller account has been created and is now awaiting approval from an administrator.\n\n" +
+      "We'll email you as soon as it's approved — then you can sign in and start building quotes.",
+    outro: "No action is needed from you right now.",
+  });
+  return sendEmail(to, "Your Cloudnomics account is pending approval", html, text);
+}
+
+/** Sent when an admin approves the account. */
+export function sendApprovalEmail(to: string, loginUrl: string) {
+  const { html, text } = renderBrandedEmail({
+    heading: "Your account is approved 🎉",
+    intro: "Good news — your Cloudnomics reseller account has been approved. You can now sign in and start building Palo Alto Networks quotes.",
+    ctaText: "Sign in",
+    ctaUrl: loginUrl,
+    outro: "After signing in, please verify your email address from the banner to fully secure your account.",
+  });
+  return sendEmail(to, "Your Cloudnomics account is approved", html, text);
+}

@@ -48,4 +48,7 @@ export const config = {
     inputPerM: Number(process.env.AI_INPUT_PER_M ?? 3),
     outputPerM: Number(process.env.AI_OUTPUT_PER_M ?? 15),
   },
+  // Abuse guardrails on outgoing quote emails (protect domain reputation).
+  emailDailyLimit: Number(process.env.EMAIL_DAILY_LIMIT ?? 50), // per reseller / 24h
+  emailCcMax: Number(process.env.EMAIL_CC_MAX ?? 5),
 };

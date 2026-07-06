@@ -12,17 +12,18 @@ export interface ResellerCredentials {
   passwordHash: string | null;
   role: string;
   emailVerified: boolean;
+  approved: boolean;
 }
 
-/** Fetch a reseller's login credentials (includes the password hash + role + verified). */
+/** Fetch a reseller's login credentials (password hash + role + verified + approved). */
 export async function getResellerCredentials(email: string): Promise<ResellerCredentials | null> {
-  const r = await query<{ email: string; company: string | null; password_hash: string | null; role: string; email_verified: boolean }>(
-    "SELECT email, company, password_hash, role, email_verified FROM resellers WHERE email = $1",
+  const r = await query<{ email: string; company: string | null; password_hash: string | null; role: string; email_verified: boolean; approved: boolean }>(
+    "SELECT email, company, password_hash, role, email_verified, approved FROM resellers WHERE email = $1",
     [email]
   );
   const row = r.rows[0];
   return row
-    ? { email: row.email, company: row.company, passwordHash: row.password_hash, role: row.role || "reseller", emailVerified: !!row.email_verified }
+    ? { email: row.email, company: row.company, passwordHash: row.password_hash, role: row.role || "reseller", emailVerified: !!row.email_verified, approved: !!row.approved }
     : null;
 }
 
@@ -36,6 +37,16 @@ export async function setEmailVerified(email: string): Promise<void> {
   await query("UPDATE resellers SET email_verified = true WHERE email = $1", [email]);
 }
 
+/** Approve (or un-approve) a reseller's portal access. */
+export async function setApproved(email: string, approved: boolean): Promise<void> {
+  await query("UPDATE resellers SET approved = $2 WHERE email = $1", [email, approved]);
+}
+
+/** Remove a reseller account (used to reject a pending signup). */
+export async function deleteReseller(email: string): Promise<void> {
+  await query("DELETE FROM resellers WHERE email = $1", [email]);
+}
+
 export interface ResellerSummary {
   email: string;
   company: string | null;
@@ -46,12 +57,13 @@ export interface ResellerSummary {
   ai_cost: string;
   monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
   cost_30d: string;                  // rolling-30d AI spend (USD)
+  approved: boolean;                 // false = pending admin approval
 }
 
 /** All resellers with quote aggregates + AI spend + spend limit/usage — admin dashboard. */
 export async function listResellers(): Promise<ResellerSummary[]> {
   const r = await query<ResellerSummary>(
-    `SELECT r.email, r.company, r.role,
+    `SELECT r.email, r.company, r.role, r.approved,
             r.monthly_cost_limit,
             COUNT(q.number)::int AS quote_count,
             COALESCE(SUM(q.customer_total), 0) AS total_value,
@@ -61,8 +73,8 @@ export async function listResellers(): Promise<ResellerSummary[]> {
                        WHERE a.reseller_email = r.email AND a.created_at >= now() - interval '30 days'), 0) AS cost_30d
        FROM resellers r
        LEFT JOIN quotes q ON q.reseller_email = r.email
-      GROUP BY r.email, r.company, r.role, r.monthly_cost_limit
-      ORDER BY total_value DESC`
+      GROUP BY r.email, r.company, r.role, r.approved, r.monthly_cost_limit
+      ORDER BY (r.approved) ASC, total_value DESC`
   );
   return r.rows;
 }

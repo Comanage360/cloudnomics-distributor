@@ -76,6 +76,7 @@ export interface AdminReseller {
   ai_cost: string;
   monthly_cost_limit: string | null; // per-reseller $ override; null = inherit default
   cost_30d: string;                   // rolling-30d AI spend (USD)
+  approved: boolean;                  // false = pending admin approval
 }
 
 export interface LimitRequest {

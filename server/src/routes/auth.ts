@@ -4,12 +4,12 @@ import { config } from "../config.js";
 import { signToken, requireAuth } from "../middleware/auth.js";
 import {
   createReseller, getResellerCredentials, setResellerRole,
-  setResellerPassword, setEmailVerified,
+  setResellerPassword, setEmailVerified, setApproved,
 } from "../repositories/resellers.js";
 import { hashPassword, verifyPassword } from "../services/password.js";
 import { issueToken, consumeToken } from "../repositories/authTokens.js";
 import { logAuthEvent } from "../repositories/authEvents.js";
-import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from "../services/mailer.js";
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendPendingApprovalEmail, sendNotification } from "../services/mailer.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import type { AuthUser } from "../types.js";
 
@@ -60,14 +60,26 @@ authRouter.post("/register", ipLimiter("register"), async (req, res) => {
   const derived = email.split("@")[1]?.split(".")[0] || "reseller";
   const company = companyInput || derived.charAt(0).toUpperCase() + derived.slice(1);
   await createReseller(email, company, await hashPassword(password));
-
-  const raw = await issueToken(email, "verify", VERIFY_TTL);
-  sendWelcomeEmail(email, company, verifyUrl(raw)).catch((e) => console.error("[mailer:welcome]", e));
   logAuthEvent({ email, event: "signup", ip: clientIp(req), userAgent: ua(req) });
-  logAuthEvent({ email, event: "verify_sent", ip: clientIp(req), userAgent: ua(req) });
 
-  const user: AuthUser = { email, company, role: await resolveRole(email) };
-  res.json({ token: signToken(user), user, emailVerified: false });
+  // Admin emails self-approve and sign in immediately; everyone else is created
+  // PENDING and gets no session until an admin approves them.
+  if (config.adminEmails.includes(email)) {
+    await setApproved(email, true);
+    const raw = await issueToken(email, "verify", VERIFY_TTL);
+    sendWelcomeEmail(email, company, verifyUrl(raw)).catch((e) => console.error("[mailer:welcome]", e));
+    logAuthEvent({ email, event: "verify_sent", ip: clientIp(req), userAgent: ua(req) });
+    const user: AuthUser = { email, company, role: await resolveRole(email) };
+    return res.json({ token: signToken(user), user, emailVerified: false });
+  }
+
+  sendPendingApprovalEmail(email, company).catch((e) => console.error("[mailer:pending]", e));
+  sendNotification(
+    config.adminEmails,
+    `New reseller awaiting approval: ${email}`,
+    `${email} (${company}) has registered and is awaiting approval.\nApprove them in the Cloudnomics admin dashboard → Resellers.`
+  ).catch((e) => console.error("[notify:pending]", e));
+  res.json({ pending: true });
 });
 
 /** Verify email + password, return a JWT. */
@@ -80,6 +92,11 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
   if (!cred || !cred.passwordHash || !(await verifyPassword(password, cred.passwordHash))) {
     logAuthEvent({ email, event: "login_failed", ip: clientIp(req), userAgent: ua(req) });
     return res.status(401).json({ error: "Invalid email or password" });
+  }
+  // Hard gate: no portal access until an admin approves the account.
+  if (!cred.approved) {
+    logAuthEvent({ email, event: "login_failed", ip: clientIp(req), userAgent: ua(req), detail: "pending" });
+    return res.status(403).json({ error: "Your account is awaiting admin approval. We'll email you once it's approved.", pending: true });
   }
 
   const user: AuthUser = { email, company: cred.company || "Reseller", role: await resolveRole(email, cred.role) };

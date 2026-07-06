@@ -43,6 +43,10 @@ ALTER TABLE resellers ALTER COLUMN monthly_cost_limit SET DEFAULT 10;
 -- the SET DEFAULT false makes NEW signups start unverified.
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE resellers ALTER COLUMN email_verified SET DEFAULT false;
+-- Admin approval gate. The ADD backfills EXISTING rows to true (grandfathered);
+-- the SET DEFAULT false makes NEW signups start pending until an admin approves.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE resellers ALTER COLUMN approved SET DEFAULT false;
 
 -- Single-use, hashed, expiring tokens for email verification + password reset.
 -- Only sha256(rawToken) is stored; the emailed link carries the raw token.
@@ -69,6 +73,16 @@ CREATE TABLE IF NOT EXISTS auth_events (
 );
 CREATE INDEX IF NOT EXISTS idx_auth_events_email ON auth_events(email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_auth_events_created ON auth_events(created_at DESC);
+
+-- Outgoing quote-email log, for per-reseller daily send caps + monitoring.
+CREATE TABLE IF NOT EXISTS email_sends (
+  id             SERIAL PRIMARY KEY,
+  reseller_email TEXT NOT NULL,
+  to_email       TEXT,
+  cc_count       INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_email_sends_reseller ON email_sends(reseller_email, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,
