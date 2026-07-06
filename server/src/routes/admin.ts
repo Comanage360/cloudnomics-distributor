@@ -5,6 +5,7 @@ import { listResellers, getReseller, setResellerLimits } from "../repositories/r
 import { listAllQuotes, getQuoteAny } from "../repositories/quotes.js";
 import { usageByReseller, usageOverall } from "../repositories/usage.js";
 import { listLimitRequests, resolveLimitRequest } from "../repositories/limitRequests.js";
+import { listAuthEvents } from "../repositories/authEvents.js";
 import { getRates, setRates } from "../services/rates.js";
 import { buildQuote } from "../services/pricing.js";
 import { renderQuotePdf } from "../services/pdf.js";
@@ -71,6 +72,13 @@ adminRouter.post("/limit-requests/:id/resolve", async (req, res) => {
   if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid request id" });
   await resolveLimitRequest(id, status);
   res.json({ ok: true });
+});
+
+/** Recent authentication / account events (audit log). */
+adminRouter.get("/auth-events", async (req, res) => {
+  const limit = Number(req.query.limit) || 200;
+  const email = req.query.email ? String(req.query.email) : undefined;
+  res.json(await listAuthEvents(limit, email));
 });
 
 /** Any quote's branded PDF (admin bypass of per-reseller scope).

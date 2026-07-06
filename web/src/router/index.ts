@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useSession } from "../stores/session";
 import LoginView from "../pages/LoginView.vue";
+import ForgotPasswordView from "../pages/ForgotPasswordView.vue";
+import ResetPasswordView from "../pages/ResetPasswordView.vue";
+import VerifyEmailView from "../pages/VerifyEmailView.vue";
 import ConsoleView from "../pages/ConsoleView.vue";
 import AssistantView from "../pages/AssistantView.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
@@ -12,6 +15,11 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/login", name: "login", component: LoginView, meta: { guest: true } },
+    // Public auth-utility pages — reachable whether or not the user is signed in
+    // (a logged-in user can still click a verify link; reset works either way).
+    { path: "/forgot-password", name: "forgotPassword", component: ForgotPasswordView, meta: { public: true } },
+    { path: "/reset-password", name: "resetPassword", component: ResetPasswordView, meta: { public: true } },
+    { path: "/verify-email", name: "verifyEmail", component: VerifyEmailView, meta: { public: true } },
     {
       path: "/",
       component: ConsoleView, // authed layout shell (topbar + sidebar + <router-view>)
@@ -29,6 +37,7 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   const session = useSession();
+  if (to.meta.public) return true; // verify / reset / forgot — always reachable
   if (to.meta.guest) return session.authed ? { path: "/" } : true;
   if (!session.authed) return { path: "/login" };
   if (to.meta.admin && !session.isAdmin) return { path: "/" }; // admins only

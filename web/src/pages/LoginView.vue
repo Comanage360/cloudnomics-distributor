@@ -1,24 +1,31 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
 import { useSession } from "../stores/session";
 
 const session = useSession();
+const router = useRouter();
 const mode = ref<"login" | "register">("login");
 const email = ref("");
 const pw = ref("");
+const pw2 = ref("");
 const company = ref("");
 const busy = ref(false);
 
 const isRegister = computed(() => mode.value === "register");
-const valid = computed(
-  () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) && pw.value.length > 0
-);
+const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()));
+const pwMismatch = computed(() => isRegister.value && pw2.value.length > 0 && pw.value !== pw2.value);
+const valid = computed(() => {
+  if (!emailOk.value) return false;
+  if (isRegister.value) return pw.value.length >= 8 && pw.value === pw2.value;
+  return pw.value.length > 0;
+});
 
 async function submit() {
   if (!valid.value || busy.value) return;
   busy.value = true;
   if (isRegister.value) {
-    await session.register(email.value.trim(), pw.value, company.value.trim() || undefined);
+    await session.register(email.value.trim(), pw.value, pw2.value, company.value.trim() || undefined);
   } else {
     await session.login(email.value.trim(), pw.value);
   }
@@ -28,6 +35,7 @@ async function submit() {
 function toggle() {
   mode.value = isRegister.value ? "login" : "register";
   session.error = "";
+  pw2.value = "";
 }
 </script>
 
@@ -48,7 +56,17 @@ function toggle() {
         </template>
 
         <label class="lbl">Password</label>
-        <input v-model="pw" type="password" class="input" placeholder="Your password" @keyup.enter="submit" />
+        <input v-model="pw" type="password" class="input" :placeholder="isRegister ? 'At least 8 characters' : 'Your password'" @keyup.enter="submit" />
+
+        <template v-if="isRegister">
+          <label class="lbl">Confirm password</label>
+          <input v-model="pw2" type="password" class="input" :class="{ invalid: pwMismatch }" placeholder="Re-enter your password" @keyup.enter="submit" />
+          <p v-if="pwMismatch" class="err">Passwords don't match.</p>
+        </template>
+
+        <div v-if="!isRegister" class="forgot">
+          <button class="link" type="button" @click="router.push('/forgot-password')">Forgot password?</button>
+        </div>
 
         <p v-if="session.error" class="err">{{ session.error }}</p>
 
@@ -88,6 +106,8 @@ h1 { font-family: var(--display); font-size: 22px; margin: 0 0 4px; letter-spaci
 .lbl { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-weight: 500; }
 .input { margin-bottom: 14px; }
 .err { color: var(--ember); font-size: 13px; margin: -4px 0 12px; }
+.input.invalid { border-color: var(--ember); }
+.forgot { text-align: right; margin: -6px 0 12px; }
 .full { width: 100%; margin-top: 8px; }
 .opt { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
 .switch { text-align: center; margin-top: 14px; font-size: 12.5px; color: var(--muted); }

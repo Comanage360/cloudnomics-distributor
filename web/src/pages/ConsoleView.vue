@@ -17,6 +17,14 @@ const router = useRouter();
 const route = useRoute();
 
 const navOpen = ref(false);  // mobile sidebar drawer
+const resending = ref(false);
+async function resendVerify() {
+  if (resending.value) return;
+  resending.value = true;
+  await session.resendVerification();
+  resending.value = false;
+  toast.show("Verification email sent — check your inbox.");
+}
 const menuOpen = ref(false); // account avatar dropdown
 
 const PATHS: Record<PortalView, string> = {
@@ -76,6 +84,13 @@ onMounted(() => {
       <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
     </header>
 
+    <div v-if="session.authed && !session.emailVerified" class="verify-bar">
+      <span>✉ Please verify your email to secure your account.</span>
+      <button class="verify-btn" :disabled="resending" @click="resendVerify">
+        {{ resending ? "Sending…" : "Resend email" }}
+      </button>
+    </div>
+
     <div class="body">
       <div v-if="navOpen" class="backdrop" @click="navOpen = false" />
       <SideNav :view="currentView" :open="navOpen" :is-admin="session.isAdmin"
@@ -113,6 +128,9 @@ onMounted(() => {
 .menu-item.danger:hover { background: var(--ember-soft); }
 .menu-backdrop { position: fixed; inset: 0; z-index: 55; }
 
+.verify-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; background: var(--ember-soft); border-bottom: 1px solid var(--ember-line, var(--line)); color: var(--ember); font-size: 12.5px; font-weight: 600; flex-shrink: 0; }
+.verify-btn { background: var(--ember); color: #fff; border: none; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.verify-btn:disabled { opacity: .6; cursor: default; }
 .body { display: flex; flex: 1; min-height: 0; position: relative; }
 /* non-assistant routed pages fill the content area */
 .body :deep(.page) { flex: 1; min-width: 0; }

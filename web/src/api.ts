@@ -1,4 +1,4 @@
-import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, LimitRequest, Pricelist, QuoteSummary, QuoteTotals, Rates, Step, UsageReport } from "./types";
+import type { AdminQuote, AdminReseller, AuthEventRow, AuthUser, ChatStatePatch, LimitRequest, Pricelist, QuoteSummary, QuoteTotals, Rates, Step, UsageReport } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -38,18 +38,43 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+type AuthResult = { token: string; user: AuthUser; emailVerified: boolean };
+
 export const api = {
   login: (email: string, password: string) =>
-    req<{ token: string; user: AuthUser }>("/api/auth/login", {
+    req<AuthResult>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (email: string, password: string, company?: string) =>
-    req<{ token: string; user: AuthUser }>("/api/auth/register", {
+  register: (email: string, password: string, confirmPassword: string, company?: string) =>
+    req<AuthResult>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, password, company }),
+      body: JSON.stringify({ email, password, confirmPassword, company }),
     }),
+
+  requestPasswordReset: (email: string) =>
+    req<{ ok: boolean }>("/api/auth/request-reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string, confirmPassword: string) =>
+    req<AuthResult>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password, confirmPassword }),
+    }),
+
+  verifyEmail: (token: string) =>
+    req<{ ok: boolean; emailVerified: boolean; email: string }>("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+
+  resendVerification: () =>
+    req<{ ok: boolean }>("/api/auth/resend-verification", { method: "POST", body: "{}" }),
+
+  me: () => req<{ user: AuthUser; emailVerified: boolean }>("/api/auth/me"),
 
   pricelist: () => req<Pricelist>("/api/pricelist"),
 
@@ -124,6 +149,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(limits),
     }),
+  adminAuthEvents: (limit = 200) => req<AuthEventRow[]>(`/api/admin/auth-events?limit=${limit}`),
   adminLimitRequests: () => req<LimitRequest[]>("/api/admin/limit-requests"),
   adminResolveLimitRequest: (id: number, status: "approved" | "dismissed") =>
     req<{ ok: boolean }>(`/api/admin/limit-requests/${id}/resolve`, {

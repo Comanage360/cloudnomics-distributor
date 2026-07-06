@@ -6,11 +6,12 @@ import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
 import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
-import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest } from "../types";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest, AuthEventRow } from "../types";
 
 const toast = useToast();
-type Tab = "resellers" | "usage" | "rates" | "limits";
+type Tab = "resellers" | "usage" | "rates" | "limits" | "activity";
 const tab = ref<Tab>("resellers");
+const authEvents = ref<AuthEventRow[]>([]);
 
 const resellers = ref<AdminReseller[]>([]);
 const quotes = ref<AdminQuote[]>([]);
@@ -251,12 +252,26 @@ async function dismissRequest() {
   finally { resolvingReq.value = false; }
 }
 
+async function loadActivity() {
+  try { authEvents.value = await api.adminAuthEvents(200); } catch (e) { toast.show((e as Error).message); }
+}
+const EV_LABEL: Record<string, string> = {
+  signup: "Signed up", login: "Logged in", login_failed: "Login failed",
+  verify_sent: "Verification sent", verify_ok: "Email verified",
+  reset_requested: "Reset requested", reset_ok: "Password reset", rate_limited: "Rate limited",
+};
+const evLabel = (e: string) => EV_LABEL[e] || e;
+const evClass = (e: string) =>
+  e === "login_failed" || e === "rate_limited" ? "ev-bad"
+  : e === "verify_ok" || e === "reset_ok" || e === "login" || e === "signup" ? "ev-ok"
+  : "ev-neutral";
 function go(t: Tab) {
   tab.value = t; drill.value = null; resetControls();
   if (t === "resellers" && !resellers.value.length) loadResellers();
   if (t === "usage" && !usage.value) loadUsage();
   if (t === "rates" && !rates.value) loadRates();
   if (t === "limits") loadLimits();
+  if (t === "activity") loadActivity();
 }
 onMounted(loadResellers);
 
@@ -297,6 +312,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
       <button :class="{ on: tab === 'limits' }" @click="go('limits')">Usage limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
+      <button :class="{ on: tab === 'activity' }" @click="go('activity')">Activity</button>
     </div>
 
     <!-- Resellers -->
@@ -554,6 +570,26 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       </template>
     </section>
 
+    <!-- Activity (auth audit log) -->
+    <section v-else-if="tab === 'activity'">
+      <p class="hint">Recent authentication &amp; account events, newest first.</p>
+      <table class="grid">
+        <thead><tr>
+          <th>When</th><th>Email</th><th>Event</th><th>IP</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="e in authEvents" :key="e.id">
+            <td class="muted nowrap">{{ new Date(e.created_at).toLocaleString() }}</td>
+            <td>{{ e.email || "—" }}</td>
+            <td><span class="badge" :class="evClass(e.event)">{{ evLabel(e.event) }}</span></td>
+            <td class="mono muted">{{ e.ip || "—" }}</td>
+          </tr>
+          <tr v-if="!authEvents.length"><td colspan="4" class="muted empty-row">No activity recorded yet.</td></tr>
+        </tbody>
+      </table>
+      <div class="tablecount">{{ authEvents.length }} events</div>
+    </section>
+
     <!-- Pricing rates -->
     <section v-else>
       <Skeleton v-if="!rates" :rows="4" />
@@ -616,6 +652,10 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .dp { width: 230px; }
 .dp :deep(.p-datepicker-input), .dp :deep(.p-inputtext) { width: 100%; font-size: 13px; padding: 7px 10px; }
 .tablecount { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
+.nowrap { white-space: nowrap; }
+.badge.ev-ok { background: var(--success-soft); color: var(--success); }
+.badge.ev-bad { background: var(--ember-soft); color: var(--ember); }
+.badge.ev-neutral { background: var(--canvas); color: var(--muted); }
 
 /* Token-usage reseller multi-select */
 .usagebar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
