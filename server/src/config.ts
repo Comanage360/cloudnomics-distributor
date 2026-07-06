@@ -29,6 +29,9 @@ export const config = {
     markupMax: Number(process.env.MARKUP_MAX ?? 20),
     costLimitMonthly: Number(process.env.COST_LIMIT_MONTHLY ?? 10), // default rolling-30d AI spend cap (USD); 0 = unlimited
     quoteStart: Number(process.env.QUOTE_START ?? 643555),
+    // Sanity guardrails on quote creation (reject obviously-wrong / abusive input).
+    maxUsers: Number(process.env.MAX_USERS ?? 100_000),
+    maxQuoteValue: Number(process.env.MAX_QUOTE_VALUE ?? 50_000_000),
   },
   smtp: {
     host: process.env.SMTP_HOST || "",

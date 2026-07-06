@@ -58,6 +58,14 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
   } = selection;
   const { implRate, managedRate } = rates;
 
+  // Margin guardrail: force the markup into the allowed band and never below 0,
+  // so a tampered client can't push the customer price below the reseller's cost.
+  const minMarkup = Math.max(0, rates.markupMin);
+  const effMarkup = Math.min(
+    rates.markupMax,
+    Math.max(minMarkup, Number.isFinite(markup) ? markup : rates.markupDefault)
+  );
+
   // Base reseller discount, plus a competitive-upgrade bonus when migrating
   // from another vendor's product (e.g. Fortinet).
   const effDiscount = Math.min(0.95, rates.discount + (competitiveModel ? rates.competitiveBonus : 0));
@@ -103,12 +111,12 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
   }
 
   const resellerTotal = round(items.reduce((s, i) => s + i.reseller, 0));
-  const customerTotal = round(resellerTotal * (1 + markup / 100));
+  const customerTotal = round(resellerTotal * (1 + effMarkup / 100));
 
   return {
     items,
     discount: effDiscount,
-    markup,
+    markup: effMarkup, // the enforced markup actually applied
     resellerTotal,
     customerTotal,
     margin: round(customerTotal - resellerTotal),
