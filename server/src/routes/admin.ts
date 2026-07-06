@@ -43,7 +43,7 @@ adminRouter.get("/usage", async (_req, res) => {
 adminRouter.get("/rates", async (_req, res) => res.json(await getRates()));
 adminRouter.put("/rates", async (req, res) => {
   const body = req.body ?? {};
-  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly", "orgMonthlyAiBudget"];
+  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly"];
   const next: Partial<Rates> = {};
   for (const k of keys) if (body[k] !== undefined && !Number.isNaN(Number(body[k]))) next[k] = Number(body[k]);
   res.json(await setRates(next));

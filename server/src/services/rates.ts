@@ -11,7 +11,6 @@ const defaults = (): Rates => ({
   markupMin: config.pricing.markupMin,
   markupMax: config.pricing.markupMax,
   costLimitMonthly: config.pricing.costLimitMonthly,
-  orgMonthlyAiBudget: Number(process.env.ORG_MONTHLY_AI_BUDGET ?? 0),
 });
 
 let cache: Rates | null = null;

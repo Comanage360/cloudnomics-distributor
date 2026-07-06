@@ -534,17 +534,6 @@ function clampRate(f: { key: keyof Rates; max: number }) {
     <section v-else-if="tab === 'limits'">
       <Skeleton v-if="loading && !resellers.length" :rows="6" />
       <template v-else>
-        <!-- org-wide AI budget kill-switch -->
-        <div v-if="rates" class="orgbudget">
-          <h2>Org-wide monthly AI budget</h2>
-          <p class="hint">Total AI spend cap across ALL resellers (rolling 30 days). When reached, the assistant is blocked for everyone until you raise it. 0 = off.</p>
-          <div class="drow">
-            <label class="dfld"><span>Monthly budget ($)</span>
-              <input type="number" min="0" step="10" v-model.number="rates.orgMonthlyAiBudget" /></label>
-            <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save budget" }}</button>
-          </div>
-        </div>
-
         <!-- per-reseller spend limits -->
         <div class="toolbar"><input v-model="search" class="search" placeholder="Search company or email…" /></div>
         <table class="grid">
@@ -694,12 +683,6 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .btn-approve:hover { opacity: .9; }
 .reject { color: var(--muted); }
 .reject:hover { color: var(--ember); }
-.orgbudget { margin-bottom: 22px; }
-.orgbudget h2 { margin: 0 0 4px; font-size: 14px; }
-.drow { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
-.dfld { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text); }
-.dfld input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; width: 160px; font-family: var(--mono); }
-.drow .save { width: auto; padding: 9px 16px; }
 
 /* Token-usage reseller multi-select */
 .usagebar { display: flex; justify-content: flex-end; margin-bottom: 12px; }

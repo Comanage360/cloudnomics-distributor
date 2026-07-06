@@ -125,7 +125,6 @@ export interface Rates {
   markupMin: number;
   markupMax: number;
   costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
-  orgMonthlyAiBudget: number; // org-wide rolling-30d AI spend ceiling (USD); 0 = off
 }
 
 export type PortalView = "assistant" | "quotes" | "products" | "branding" | "admin";
