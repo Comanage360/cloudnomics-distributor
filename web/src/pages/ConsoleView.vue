@@ -79,7 +79,7 @@ onMounted(() => {
     <div class="body">
       <div v-if="navOpen" class="backdrop" @click="navOpen = false" />
       <SideNav :view="currentView" :open="navOpen" :is-admin="session.isAdmin"
-        @navigate="navigate" @new-quote="newQuote" @toast="toast.show" />
+        @navigate="navigate" @new-quote="newQuote" />
       <router-view />
     </div>
 
