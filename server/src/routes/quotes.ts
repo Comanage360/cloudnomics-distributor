@@ -22,10 +22,6 @@ function logoToBuffer(dataUrl: string | null): Buffer | null {
   try { return Buffer.from(m[1], "base64"); } catch { return null; }
 }
 
-quotesRouter.get("/next-number", requireAuth, async (_req, res) => {
-  res.json({ number: await nextNumber() });
-});
-
 /** List the authenticated reseller's quotes (newest first). */
 quotesRouter.get("/", requireAuth, async (req, res) => {
   res.json(await listQuotes(req.user!.email));

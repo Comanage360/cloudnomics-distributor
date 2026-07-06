@@ -36,14 +36,6 @@ export interface QuoteTotals {
   margin: number;
   currency: string;
 }
-export interface Recommendation {
-  sku: string;
-  users: number;
-  message: string;
-  series?: string;
-  unit?: PriceUnit;
-  source: "claude" | "fallback";
-}
 export interface ChatMessage {
   id: number;
   role: "claude" | "user";
@@ -124,7 +116,7 @@ export interface Rates {
   costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
 }
 
-export type PortalView = "assistant" | "quotes" | "renewals" | "products" | "branding" | "admin";
+export type PortalView = "assistant" | "quotes" | "products" | "branding" | "admin";
 
 export interface AdminQuote extends QuoteSummary {
   reseller_email: string;

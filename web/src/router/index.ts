@@ -4,7 +4,6 @@ import LoginView from "../pages/LoginView.vue";
 import ConsoleView from "../pages/ConsoleView.vue";
 import AssistantView from "../pages/AssistantView.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
-import MyRenewalsPage from "../components/MyRenewalsPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
 import BrandingPage from "../components/BrandingPage.vue";
 import AdminPage from "../components/AdminPage.vue";
@@ -19,7 +18,6 @@ export const router = createRouter({
       children: [
         { path: "", name: "assistant", component: AssistantView },
         { path: "quotes", name: "quotes", component: MyQuotesPage },
-        { path: "renewals", name: "renewals", component: MyRenewalsPage },
         { path: "products", name: "products", component: ProductsPage },
         { path: "branding", name: "branding", component: BrandingPage },
         { path: "admin", name: "admin", component: AdminPage, meta: { admin: true } },

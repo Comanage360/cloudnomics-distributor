@@ -6,19 +6,6 @@ export interface ResellerRow {
   logo_url: string | null;
 }
 
-/**
- * Ensure a reseller row exists. The derived company is only used to seed a NEW
- * row — an existing (possibly user-edited) company is preserved across logins.
- */
-export async function upsertReseller(email: string, company: string): Promise<void> {
-  await query(
-    `INSERT INTO resellers (email, company)
-     VALUES ($1, $2)
-     ON CONFLICT (email) DO NOTHING`,
-    [email, company]
-  );
-}
-
 export interface ResellerCredentials {
   email: string;
   company: string | null;

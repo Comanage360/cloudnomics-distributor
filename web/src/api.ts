@@ -1,4 +1,4 @@
-import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, LimitRequest, Pricelist, QuoteSummary, QuoteTotals, Rates, Recommendation, Step, UsageReport } from "./types";
+import type { AdminQuote, AdminReseller, AuthUser, ChatStatePatch, LimitRequest, Pricelist, QuoteSummary, QuoteTotals, Rates, Step, UsageReport } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
@@ -53,12 +53,6 @@ export const api = {
 
   pricelist: () => req<Pricelist>("/api/pricelist"),
 
-  recommend: (requirement: string) =>
-    req<Recommendation>("/api/recommend", {
-      method: "POST",
-      body: JSON.stringify({ requirement }),
-    }),
-
   // One AI advisor turn: send the conversation + current selection state, get
   // back the next reply, a validated state patch, the step, and a done flag.
   chat: (payload: { messages: { role: "user" | "assistant"; text: string }[]; state: ChatStatePatch; sessionId: string }) =>
@@ -75,8 +69,6 @@ export const api = {
     }),
   // Whether the current reseller already has a pending increase request.
   myLimitRequest: () => req<{ pending: boolean }>("/api/limits/my-request"),
-
-  nextNumber: () => req<{ number: number }>("/api/quotes/next-number"),
 
   listQuotes: () => req<QuoteSummary[]>("/api/quotes"),
 

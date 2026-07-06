@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { config } from "./config.js";
 import { migrate } from "./db.js";
 import { authRouter } from "./routes/auth.js";
-import { pricelistRouter, recommendRouter } from "./routes/pricelist.js";
+import { pricelistRouter } from "./routes/pricelist.js";
 import { quotesRouter } from "./routes/quotes.js";
 import { chatRouter } from "./routes/chat.js";
 import { calendarRouter } from "./routes/calendar.js";
@@ -23,7 +23,6 @@ app.use(express.json({ limit: "5mb" })); // headroom for base64 logos
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/pricelist", pricelistRouter);
-app.use("/api/recommend", recommendRouter);
 app.use("/api/quotes", quotesRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/calendar", calendarRouter);

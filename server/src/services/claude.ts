@@ -1,12 +1,4 @@
-import { config } from "../config.js";
-import type { Pricelist, Recommendation, UsageInfo } from "../types.js";
-
-export interface RecommendResult {
-  recommendation: Recommendation;
-  usage: UsageInfo | null; // null on the local fallback (no API call)
-}
-
-const fmt = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+import type { Pricelist, Recommendation } from "../types.js";
 
 /** Heuristic: does the requirement describe a virtual/cloud deployment? */
 function wantsVirtual(requirement: string): boolean {
@@ -15,7 +7,8 @@ function wantsVirtual(requirement: string): boolean {
   );
 }
 
-/** Local fallback: size by detected user count + inferred type, no API needed. */
+/** Local fallback: size by detected user count + inferred type, no API needed.
+ *  Used by the chat advisor (chatAdvisor.ts) to seed an initial firewall pick. */
 export function fallbackRecommendation(
   requirement: string,
   pricelist: Pricelist
@@ -38,101 +31,4 @@ export function fallbackRecommendation(
     message: `For around ${users} users, the ${fw.sku} is the right fit — it's a ${kind} sized for up to ${fw.maxUsers} seats with room to grow.`,
     source: "fallback",
   };
-}
-
-interface AnthropicTextBlock { type: string; text?: string }
-interface AnthropicResponse {
-  content?: AnthropicTextBlock[];
-  usage?: { input_tokens?: number; output_tokens?: number };
-}
-
-/**
- * Ask Claude to recommend the best firewall SKU. Falls back locally on any
- * failure or when no API key is configured. Claude never does the pricing math.
- * Returns the recommendation plus token usage (null on the local fallback).
- */
-export async function recommendFirewall(
-  requirement: string,
-  pricelist: Pricelist
-): Promise<RecommendResult> {
-  if (!config.anthropic.apiKey) return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
-
-  const system =
-    "You are the Cloudnomics Palo Alto Networks advisor helping a reseller who is NOT a Palo Alto expert. " +
-    "Given their requirement and the firewall pricelist, pick the single best firewall SKU. " +
-    "Choose hardware (PA-Series) for physical offices/branches/on-prem, and virtual (VM-Series) when the " +
-    "requirement mentions cloud, virtual, a data center, or a hypervisor (AWS/Azure/GCP/VMware). " +
-    "Do NOT pick on-request products (CN-Series) — they have no price. " +
-    "Respond with MINIFIED JSON ONLY — no markdown, no backticks, no prose. " +
-    'Keys: "sku" (exactly one listed SKU), "users" (integer detected or sensibly estimated), ' +
-    '"message" (one or two warm, plain-language sentences to the reseller — no jargon).';
-
-  const listText = pricelist.firewalls
-    .map((f) => {
-      const price = f.list == null ? "price on request" : `list ${fmt(f.list)}`;
-      const unit = f.unit === "annual" ? "/yr" : f.unit === "on_request" ? "" : " one-time";
-      return `${f.sku} [${f.series}]: up to ${f.maxUsers} users, ${price}${f.list == null ? "" : unit}`;
-    })
-    .join("\n");
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": config.anthropic.apiKey,
-        "anthropic-version": config.anthropic.version,
-      },
-      body: JSON.stringify({
-        model: config.anthropic.model,
-        max_tokens: 1000,
-        system,
-        messages: [
-          {
-            role: "user",
-            content: `Reseller requirement: "${requirement}"\n\nFirewall pricelist:\n${listText}`,
-          },
-        ],
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
-    const data = (await res.json()) as AnthropicResponse;
-    const text = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text || "")
-      .join("")
-      .replace(/```json|```/g, "")
-      .trim();
-
-    const parsed = JSON.parse(text) as Partial<Recommendation>;
-    const picked = pricelist.firewalls.find((f) => f.sku === parsed.sku);
-    // Reject an unknown SKU or an on-request product (CN-Series has no price).
-    if (!parsed.sku || !picked || picked.unit === "on_request" || picked.list == null) {
-      throw new Error("invalid or unpriceable SKU");
-    }
-    const users =
-      parsed.users && !Number.isNaN(Number(parsed.users))
-        ? Number(parsed.users)
-        : fallbackRecommendation(requirement, pricelist).users;
-
-    return {
-      recommendation: {
-        sku: picked.sku,
-        users,
-        series: picked.series,
-        unit: picked.unit,
-        message: parsed.message || `Recommended ${picked.sku} for your requirement.`,
-        source: "claude",
-      },
-      usage: {
-        model: config.anthropic.model,
-        inputTokens: data.usage?.input_tokens ?? 0,
-        outputTokens: data.usage?.output_tokens ?? 0,
-      },
-    };
-  } catch (err) {
-    console.warn("[claude] recommendation failed, using fallback:", (err as Error).message);
-    return { recommendation: fallbackRecommendation(requirement, pricelist), usage: null };
-  }
 }
