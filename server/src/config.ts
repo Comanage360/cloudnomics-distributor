@@ -6,6 +6,10 @@ export const config = {
   adminEmails: (process.env.ADMIN_EMAILS || "")
     .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  // Public base URL for links in emails (verify / reset). Falls back to the first
+  // CORS origin, then the local dev URL.
+  appUrl: (process.env.APP_URL || process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")[0].trim().replace(/\/$/, ""),
   databaseUrl:
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/cloudnomics",

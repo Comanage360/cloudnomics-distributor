@@ -17,6 +17,10 @@ import { adminRouter } from "./routes/admin.js";
 
 const app = express();
 
+// Behind Nginx on the VM — trust the proxy so req.ip is the real client IP
+// (used by the auth rate limiter + audit log).
+app.set("trust proxy", true);
+
 app.use(cors({ origin: config.corsOrigin.split(",").map((s) => s.trim()) }));
 app.use(express.json({ limit: "5mb" })); // headroom for base64 logos
 

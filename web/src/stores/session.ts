@@ -33,6 +33,8 @@ export const useSession = defineStore("session", () => {
   const authed = ref(Boolean(getToken()) && !!valid);
   const isAdmin = computed(() => user.value?.role === "admin");
   const error = ref("");
+  // Optimistic on restore (avoids a banner flash); corrected by login/refresh().
+  const emailVerified = ref(true);
 
   let expiryTimer: number | undefined;
   function scheduleExpiry() {
@@ -56,10 +58,11 @@ export const useSession = defineStore("session", () => {
   async function login(email: string, password: string) {
     error.value = "";
     try {
-      const { token, user: u } = await api.login(email, password);
+      const { token, user: u, emailVerified: ev } = await api.login(email, password);
       setToken(token);
       user.value = u;
       authed.value = true;
+      emailVerified.value = ev;
       scheduleExpiry();
       return true;
     } catch (e) {
@@ -68,25 +71,76 @@ export const useSession = defineStore("session", () => {
     }
   }
 
-  async function register(email: string, password: string, company?: string) {
+  async function register(email: string, password: string, confirmPassword: string, company?: string) {
     error.value = "";
     try {
-      const { token, user: u } = await api.register(email, password, company);
+      const { token, user: u, emailVerified: ev } = await api.register(email, password, confirmPassword, company);
       setToken(token);
       user.value = u;
       authed.value = true;
+      emailVerified.value = ev;
       scheduleExpiry();
       return true;
     } catch (e) {
       error.value = (e as Error).message;
       return false;
     }
+  }
+
+  /** Refresh user + verified status from the server (after load / after verify). */
+  async function refresh() {
+    if (!authed.value) return;
+    try {
+      const { user: u, emailVerified: ev } = await api.me();
+      user.value = u;
+      emailVerified.value = ev;
+    } catch { /* a stale token surfaces via other protected calls */ }
+  }
+
+  /** Start a password reset — always resolves ok (never reveals if the email exists). */
+  async function requestReset(email: string) {
+    error.value = "";
+    try { await api.requestPasswordReset(email); return true; }
+    catch (e) { error.value = (e as Error).message; return false; }
+  }
+
+  /** Complete a reset from an emailed token; logs the user in on success. */
+  async function resetPassword(token: string, password: string, confirmPassword: string) {
+    error.value = "";
+    try {
+      const { token: jwt, user: u, emailVerified: ev } = await api.resetPassword(token, password, confirmPassword);
+      setToken(jwt);
+      user.value = u;
+      authed.value = true;
+      emailVerified.value = ev;
+      scheduleExpiry();
+      return true;
+    } catch (e) { error.value = (e as Error).message; return false; }
+  }
+
+  /** Confirm the account email from an emailed token. */
+  async function verifyEmail(token: string) {
+    error.value = "";
+    try {
+      const r = await api.verifyEmail(token);
+      if (r.emailVerified && user.value?.email === r.email) emailVerified.value = true;
+      return true;
+    } catch (e) { error.value = (e as Error).message; return false; }
+  }
+
+  /** Resend the verification email to the signed-in user. */
+  async function resendVerification() {
+    try { await api.resendVerification(); return true; } catch { return false; }
   }
 
   // Force logout if a protected request is rejected (expired/invalid token),
-  // and arm the idle expiry timer for the current session.
+  // arm the idle expiry timer, and sync verified status for a restored session.
   setUnauthorizedHandler(() => logout());
   scheduleExpiry();
+  refresh();
 
-  return { user, authed, isAdmin, error, login, register, logout };
+  return {
+    user, authed, isAdmin, error, emailVerified,
+    login, register, logout, refresh, requestReset, resetPassword, verifyEmail, resendVerification,
+  };
 });

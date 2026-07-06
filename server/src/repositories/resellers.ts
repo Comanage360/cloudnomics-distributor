@@ -11,21 +11,29 @@ export interface ResellerCredentials {
   company: string | null;
   passwordHash: string | null;
   role: string;
+  emailVerified: boolean;
 }
 
-/** Fetch a reseller's login credentials (includes the password hash + role). */
+/** Fetch a reseller's login credentials (includes the password hash + role + verified). */
 export async function getResellerCredentials(email: string): Promise<ResellerCredentials | null> {
-  const r = await query<{ email: string; company: string | null; password_hash: string | null; role: string }>(
-    "SELECT email, company, password_hash, role FROM resellers WHERE email = $1",
+  const r = await query<{ email: string; company: string | null; password_hash: string | null; role: string; email_verified: boolean }>(
+    "SELECT email, company, password_hash, role, email_verified FROM resellers WHERE email = $1",
     [email]
   );
   const row = r.rows[0];
-  return row ? { email: row.email, company: row.company, passwordHash: row.password_hash, role: row.role || "reseller" } : null;
+  return row
+    ? { email: row.email, company: row.company, passwordHash: row.password_hash, role: row.role || "reseller", emailVerified: !!row.email_verified }
+    : null;
 }
 
 /** Promote/demote a reseller. */
 export async function setResellerRole(email: string, role: "admin" | "reseller"): Promise<void> {
   await query("UPDATE resellers SET role = $2 WHERE email = $1", [email, role]);
+}
+
+/** Mark a reseller's email as verified. */
+export async function setEmailVerified(email: string): Promise<void> {
+  await query("UPDATE resellers SET email_verified = true WHERE email = $1", [email]);
 }
 
 export interface ResellerSummary {

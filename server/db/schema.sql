@@ -39,6 +39,36 @@ ALTER TABLE resellers ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'resel
 -- $10; 0 = explicitly unlimited; NULL = fall back to the built-in default.
 ALTER TABLE resellers ADD COLUMN IF NOT EXISTS monthly_cost_limit NUMERIC DEFAULT 10;
 ALTER TABLE resellers ALTER COLUMN monthly_cost_limit SET DEFAULT 10;
+-- Email verification. The ADD backfills EXISTING rows to true (grandfathered);
+-- the SET DEFAULT false makes NEW signups start unverified.
+ALTER TABLE resellers ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE resellers ALTER COLUMN email_verified SET DEFAULT false;
+
+-- Single-use, hashed, expiring tokens for email verification + password reset.
+-- Only sha256(rawToken) is stored; the emailed link carries the raw token.
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id          SERIAL PRIMARY KEY,
+  email       TEXT NOT NULL,
+  kind        TEXT NOT NULL,              -- 'verify' | 'reset'
+  token_hash  TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens(token_hash);
+
+-- Audit log of authentication / account events.
+CREATE TABLE IF NOT EXISTS auth_events (
+  id          SERIAL PRIMARY KEY,
+  email       TEXT,
+  event       TEXT NOT NULL,             -- signup | login | login_failed | verify_sent | verify_ok | reset_requested | reset_ok | rate_limited
+  ip          TEXT,
+  user_agent  TEXT,
+  detail      TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_auth_events_email ON auth_events(email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auth_events_created ON auth_events(created_at DESC);
 
 CREATE TABLE IF NOT EXISTS quotes (
   number         BIGINT PRIMARY KEY,

@@ -90,6 +90,16 @@ export interface LimitRequest {
   resolved_at: string | null;
 }
 
+export interface AuthEventRow {
+  id: number;
+  email: string | null;
+  event: string;
+  ip: string | null;
+  user_agent: string | null;
+  detail: string | null;
+  created_at: string;
+}
+
 export interface UsageRow {
   reseller_email: string;
   company: string | null;
