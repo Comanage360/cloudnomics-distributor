@@ -20,7 +20,7 @@ const navOpen = ref(false);  // mobile sidebar drawer
 const menuOpen = ref(false); // account avatar dropdown
 
 const PATHS: Record<PortalView, string> = {
-  assistant: "/", quotes: "/quotes", renewals: "/renewals",
+  assistant: "/", quotes: "/quotes",
   products: "/products", branding: "/branding", admin: "/admin",
 };
 const currentView = computed<PortalView>(() => (route.name as PortalView) || "assistant");

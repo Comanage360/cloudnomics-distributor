@@ -24,9 +24,6 @@ const emit = defineEmits<{
       <button class="item" :class="{ active: view === 'quotes' }" @click="emit('navigate', 'quotes')">
         <Icon name="quotes" class="icon" /> My quotes
       </button>
-      <button class="item" :class="{ active: view === 'renewals' }" @click="emit('navigate', 'renewals')">
-        <Icon name="renewals" class="icon" /> My renewals
-      </button>
       <button class="item" :class="{ active: view === 'products' }" @click="emit('navigate', 'products')">
         <Icon name="products" class="icon" /> Products
       </button>

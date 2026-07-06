@@ -1,4 +1,3 @@
-import { config } from "../config.js";
 import type {
   Pricelist,
   QuoteSelection,
@@ -7,8 +6,6 @@ import type {
   Firewall,
   Rates,
 } from "../types.js";
-
-const { quoteStart } = config.pricing;
 
 const round = (n: number) => Math.round(n);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -117,8 +114,4 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
     margin: round(customerTotal - resellerTotal),
     currency: pricelist.currency,
   };
-}
-
-export function nextQuoteNumber(highest: number | null): number {
-  return highest == null ? quoteStart : highest + 1;
 }
