@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { config } from "../config.js";
 import { loadPricelist } from "../db.js";
 import { buildQuote } from "../services/pricing.js";
 import { renderQuotePdf } from "../services/pdf.js";
@@ -43,10 +44,23 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
   if (!selection.sku || !selection.users) {
     return res.status(400).json({ error: "sku and users are required" });
   }
+  // Guardrail: a sane, whole user count (huge values usually mean a typo/abuse
+  // and would inflate per-user XDR pricing).
+  selection.users = Math.floor(selection.users);
+  if (!Number.isInteger(selection.users) || selection.users < 1 || selection.users > config.pricing.maxUsers) {
+    return res.status(400).json({ error: `User count must be a whole number between 1 and ${config.pricing.maxUsers.toLocaleString()}.` });
+  }
 
   const pricelist = await loadPricelist();
   const rates = await getRates();
   const totals = buildQuote(selection, pricelist, rates);
+  selection.markup = totals.markup; // persist the enforced (clamped) markup, not the raw input
+
+  // Guardrail: reject absurd totals (data-entry error / abuse) before persisting.
+  if (totals.customerTotal > config.pricing.maxQuoteValue) {
+    return res.status(400).json({ error: "This quote total is unusually large — please review the selection or contact your administrator." });
+  }
+
   const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 64) : "";
 
   // One quote per session: if this session already produced a quote, return it

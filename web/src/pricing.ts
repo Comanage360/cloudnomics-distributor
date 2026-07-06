@@ -54,9 +54,13 @@ export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates
     items.push({ key: "managed", label: "Managed Service", meta: `${pct(MANAGED)} of subtotal`, qty: 1, listTotal: v, reseller: v, service: true });
   }
   const resellerTotal = round(items.reduce((s, i) => s + i.reseller, 0));
-  const customerTotal = round(resellerTotal * (1 + sel.markup / 100));
+  // Mirror the server's margin guardrail: clamp markup into the allowed band,
+  // never below 0, so the preview matches the authoritative total.
+  const minMarkup = Math.max(0, rates.markupMin);
+  const effMarkup = Math.min(rates.markupMax, Math.max(minMarkup, Number.isFinite(sel.markup) ? sel.markup : rates.markupDefault));
+  const customerTotal = round(resellerTotal * (1 + effMarkup / 100));
   return {
-    items, discount: eff, markup: sel.markup,
+    items, discount: eff, markup: effMarkup,
     resellerTotal, customerTotal, margin: round(customerTotal - resellerTotal),
     currency: pricelist?.currency || "USD",
   };
