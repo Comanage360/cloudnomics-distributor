@@ -8,7 +8,6 @@ defineProps<{ view: PortalView; open?: boolean; isAdmin?: boolean }>();
 const emit = defineEmits<{
   navigate: [view: PortalView];
   newQuote: [];
-  toast: [msg: string];
 }>();
 </script>
 
@@ -52,12 +51,6 @@ const emit = defineEmits<{
       <div class="label">Account</div>
       <button class="item" :class="{ active: view === 'branding' }" @click="emit('navigate', 'branding')">
         <Icon name="branding" class="icon" /> My branding
-      </button>
-      <button class="item" @click="emit('toast', 'Calendar reminders are offered after a quote is sent')">
-        <Icon name="calendar" class="icon" /> Calendar setup
-      </button>
-      <button class="item" @click="emit('toast', 'Settings coming soon')">
-        <Icon name="settings" class="icon" /> Settings
       </button>
     </div>
   </nav>
