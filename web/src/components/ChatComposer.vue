@@ -5,6 +5,7 @@ import { money } from "../theme";
 import CalendarBlock from "./CalendarBlock.vue";
 import EmailComposer from "./EmailComposer.vue";
 import LimitBanner from "./LimitBanner.vue";
+import AiStatusBanner from "./AiStatusBanner.vue";
 
 const q = useQuote();
 const composerOpen = ref(false);
@@ -93,6 +94,9 @@ function submitCustomer() {
     <div class="inner">
       <!-- AI spend limit reached: banner + request-increase flow (blocks new turns) -->
       <LimitBanner class="cbanner" />
+
+      <!-- advisor fell back to the offline flow: say so instead of silently degrading -->
+      <AiStatusBanner class="cbanner" />
 
       <!-- one quote per session: after creation, send this quote then start a new session -->
       <div v-if="q.step === 'send' || q.step === 'done'">

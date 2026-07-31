@@ -51,5 +51,8 @@ chatRouter.post("/", requireAuth, async (req, res) => {
   // Recorded immediately, so a half-finished/abandoned session still counts.
   if (result.usage) insertUsage(req.user!.email, result.usage, sessionId).catch((e) => console.error("[ai_usage]", e));
 
-  res.json({ reply: result.reply, patch: result.patch, step: result.step, done: result.done });
+  res.json({
+    reply: result.reply, patch: result.patch, step: result.step, done: result.done,
+    aiDegraded: result.aiDegraded,
+  });
 });

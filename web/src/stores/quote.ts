@@ -25,6 +25,11 @@ export const useQuote = defineStore("quote", () => {
   // "request a limit increase" flow (composer + right panel). Cleared on reset().
   const limited = ref(false);
   const limitInfo = ref<{ period: "monthly" | null; used: number; limit: number } | null>(null);
+  // The advisor answered from the local fallback instead of the model (API key
+  // missing or the provider errored). The flow still moves but can't capture
+  // free-text answers or reach every step, so we tell the reseller rather than
+  // letting it look like it's working.
+  const aiDegraded = ref(false);
   const limitRequested = ref(false);   // they already submitted a request (awaiting admin)
   const limitModalOpen = ref(false);   // the request modal is open
   function openLimitRequest() { limitModalOpen.value = true; }
@@ -102,6 +107,7 @@ export const useQuote = defineStore("quote", () => {
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
     limited.value = false; limitInfo.value = null; limitRequested.value = false; limitModalOpen.value = false;
+    aiDegraded.value = false; // live status, re-established by the next turn
     sessionId.value = newSessionId(); // a fresh session each new quote
     addClaude('Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.');
   }
@@ -179,6 +185,7 @@ export const useQuote = defineStore("quote", () => {
         return;
       }
       limited.value = false; // a normal turn means they're no longer blocked
+      aiDegraded.value = !!res.aiDegraded;
       const pickedFw = applyPatch(res.patch || {});
       if (res.step) step.value = res.step;
       addClaude(res.reply, pickedFw && sel.firewall ? { firewall: sel.firewall, users: sel.users } : undefined);
@@ -226,7 +233,7 @@ export const useQuote = defineStore("quote", () => {
 
   return {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
-    limited, limitInfo, limitRequested, limitModalOpen,
+    limited, limitInfo, limitRequested, limitModalOpen, aiDegraded,
     openLimitRequest, closeLimitRequest, markLimitRequested,
     init, reset, sendMessage, setType, setFirewall, send, noteSent,
   };
