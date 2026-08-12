@@ -141,6 +141,7 @@ export const useQuote = defineStore("quote", () => {
       fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl, managed: sel.managed,
       competitiveModel: sel.competitiveModel || undefined,
       markup: sel.markup,
+      catalogItems: sel.catalogItems?.length ? [...sel.catalogItems] : undefined,
       customerName: customer.name || undefined,
       customerEmail: customer.email || undefined,
     };
@@ -160,6 +161,14 @@ export const useQuote = defineStore("quote", () => {
     if (typeof patch.managed === "boolean") sel.managed = patch.managed;
     if (typeof patch.competitiveModel === "string") sel.competitiveModel = patch.competitiveModel;
     if (typeof patch.markup === "number") sel.markup = patch.markup;
+    // The advisor sends the full desired list, so replace rather than merge —
+    // that's how it removes an item the reseller changed their mind about.
+    if (Array.isArray(patch.catalogItems)) {
+      sel.catalogItems = patch.catalogItems.map((c) => ({
+        partNumber: String(c.partNumber),
+        qty: Math.min(10_000, Math.max(1, Math.floor(Number(c.qty) || 1))),
+      }));
+    }
     if (typeof patch.customerName === "string") customer.name = patch.customerName;
     if (typeof patch.customerEmail === "string") customer.email = patch.customerEmail;
     return pickedFw;
@@ -167,10 +176,12 @@ export const useQuote = defineStore("quote", () => {
 
   /** Persist the quote on the server (authoritative recompute) once built. */
   async function finalize() {
-    if (quoteNumber.value || !sel.firewall || !customer.name.trim() || !emailOk(customer.email)) return;
+    // A quote needs a firewall OR at least one catalog SKU (subscription-only deal).
+    const hasProduct = !!sel.firewall || !!sel.catalogItems?.length;
+    if (quoteNumber.value || !hasProduct || !customer.name.trim() || !emailOk(customer.email)) return;
     try {
       const result = await api.createQuote({
-        sku: sel.firewall.sku, users: sel.users,
+        sku: sel.firewall?.sku ?? "", users: sel.users,
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
         competitiveModel: sel.competitiveModel,
