@@ -284,7 +284,10 @@ function go(t: Tab) {
 }
 onMounted(loadResellers);
 
-const rateFields: { key: keyof Rates; label: string; desc: string; max: number; step: number }[] = [
+/** Rates that are plain numbers — excludes the per-category discount map. */
+type NumericRateKey = Exclude<keyof Rates, "catalogDiscounts">;
+
+const rateFields: { key: NumericRateKey; label: string; desc: string; max: number; step: number }[] = [
   { key: "discount", label: "Reseller discount", max: 1, step: 0.01,
     desc: "Base discount off Palo Alto product list prices. Decimal — 0.30 = 30% off." },
   { key: "competitiveBonus", label: "Competitive upgrade bonus", max: 1, step: 0.01,
@@ -301,8 +304,34 @@ const rateFields: { key: keyof Rates; label: string; desc: string; max: number; 
     desc: "Highest markup a reseller can set on the slider. Percentage." },
 ];
 
+// PANW discount categories, per the global price list legend. Only the ones the
+// imported catalog actually uses are exposed; the rest fall back to the base rate.
+const catalogCategories = [
+  { code: "B", label: "Subscriptions" },
+  { code: "D", label: "Backline Support" },
+  { code: "A", label: "Hardware" },
+  { code: "C", label: "Frontline Support / Training" },
+  { code: "E", label: "Professional Services" },
+];
+
+/** Current override for a category, or "" when it inherits the base discount. */
+function catalogDiscountInput(code: string): number | "" {
+  const v = rates.value?.catalogDiscounts?.[code];
+  return typeof v === "number" ? v : "";
+}
+
+/** Set/clear a per-category override. Empty input removes it (inherit base). */
+function setCatalogDiscount(code: string, raw: string) {
+  if (!rates.value) return;
+  const map = { ...(rates.value.catalogDiscounts ?? {}) };
+  const v = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(v)) delete map[code];
+  else map[code] = Math.max(0, Math.min(0.95, v));
+  rates.value.catalogDiscounts = map;
+}
+
 /** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */
-function clampRate(f: { key: keyof Rates; max: number }) {
+function clampRate(f: { key: NumericRateKey; max: number }) {
   if (!rates.value) return;
   const v = Number(rates.value[f.key]);
   rates.value[f.key] = Math.max(0, Math.min(f.max, Number.isFinite(v) ? v : 0));
@@ -623,6 +652,23 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <input type="number" min="0" :max="f.max" :step="f.step" v-model.number="rates[f.key]" @change="clampRate(f)" />
           </label>
         </div>
+        <h3 class="subhead">Catalog discounts by PANW category</h3>
+        <p class="hint">
+          Reseller discount applied to MSSP / global-list SKUs, per PANW discount category.
+          Leave a category blank to fall back to the base reseller discount above.
+        </p>
+        <div class="rateform">
+          <label v-for="c in catalogCategories" :key="c.code" class="rate">
+            <span class="rate-label">{{ c.code }} — {{ c.label }}</span>
+            <small class="rate-desc">Decimal, e.g. 0.30 = 30% off list. Blank = use base discount.</small>
+            <input
+              type="number" min="0" max="0.95" step="0.01" placeholder="base"
+              :value="catalogDiscountInput(c.code)"
+              @input="setCatalogDiscount(c.code, ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+        </div>
+
         <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save rates" }}</button>
       </template>
     </section>
@@ -734,6 +780,7 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .cl { font-size: 11px; color: var(--muted); }
 .cv { font-size: 22px; font-weight: 800; font-family: var(--mono); color: var(--ink); margin-top: 4px; }
 .hint { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+.subhead { font-size: 14px; font-weight: 700; margin: 26px 0 6px; }
 .rateform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 720px; }
 .rate { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--text); }
 .rate input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--mono); }

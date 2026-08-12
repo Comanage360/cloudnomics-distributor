@@ -6,7 +6,17 @@ import type { LineItem, Pricelist, QuoteTotals, Rates } from "./types";
 export const DEFAULT_RATES: Rates = {
   discount: 0.3, competitiveBonus: 0.1, implRate: 0.15, managedRate: 0.15,
   markupDefault: 15, markupMin: 10, markupMax: 20, costLimitMonthly: 0,
+  catalogDiscounts: {},
 };
+
+/** Mirror of the server's per-category catalog discount (see
+ *  server/src/services/pricing.ts). Unset categories fall back to the base
+ *  reseller discount; the competitive bonus never applies to catalog SKUs. */
+export function catalogDiscountFor(discountCategory: string, rates: Rates): number {
+  const configured = rates.catalogDiscounts?.[discountCategory];
+  const value = typeof configured === "number" && Number.isFinite(configured) ? configured : rates.discount;
+  return Math.min(0.95, Math.max(0, value));
+}
 
 const round = (n: number) => Math.round(n);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -26,6 +36,7 @@ export interface Selection {
   managed: boolean;
   markup: number;
   competitiveModel: string;
+  catalogItems?: { partNumber: string; qty: number }[];
 }
 
 export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates: Rates = DEFAULT_RATES): QuoteTotals {
@@ -48,6 +59,25 @@ export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates
     items.push({ key: "xdr", label: `${pricelist.xdr.sku} · ${pricelist.xdr.name}`, meta: `${sel.users} users × $${pricelist.xdr.listPerUser}/yr`, qty: sel.users, listTotal: xList, reseller: xRes, service: false });
     if (sel.xdrImpl) items.push({ key: "xdrimpl", label: "Implementation — XDR", meta: `${pct(IMPL)} of XDR`, qty: 1, listTotal: round(xRes * IMPL), reseller: round(xRes * IMPL), service: true });
   }
+  // Catalog SKUs (MSSP subscriptions) — mirrors the server engine's loop.
+  for (const entry of sel.catalogItems ?? []) {
+    const item = pricelist?.catalog?.find((c) => c.partNumber === entry.partNumber);
+    if (!item) continue;
+    const qty = Math.max(1, Math.floor(Number(entry.qty) || 1));
+    const label = `${item.partNumber} · ${item.model}`;
+    if (item.list == null || item.unit === "on_request") {
+      items.push({ key: `cat:${item.partNumber}`, label, meta: `${qty} × Contact for pricing`, qty, listTotal: 0, reseller: 0, service: false });
+      continue;
+    }
+    const catDiscount = catalogDiscountFor(item.discountCategory, rates);
+    const listTotal = item.list * qty;
+    items.push({
+      key: `cat:${item.partNumber}`, label,
+      meta: `${qty} × $${item.list.toLocaleString("en-US")} · ${unitLabel(item.unit)} · ${pct(catDiscount)} off`,
+      qty, listTotal, reseller: round(listTotal * (1 - catDiscount)), service: false,
+    });
+  }
+
   const subtotal = items.reduce((s, i) => s + i.reseller, 0);
   if (sel.managed && subtotal > 0) {
     const v = round(subtotal * MANAGED);

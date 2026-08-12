@@ -13,10 +13,30 @@ export interface Xdr {
   name: string;
   listPerUser: number;
 }
+/** A non-firewall SKU from the PANW global list (MSSP subscriptions today). */
+export interface CatalogItem {
+  partNumber: string;
+  name: string;
+  model: string;
+  category: string;
+  description: string;
+  list: number | null;      // null when quoted per PANW
+  unit: Firewall["unit"];
+  discountCategory: string; // A | B | C | D | ... — selects the reseller discount
+  tag: string;
+}
+
+/** A catalog SKU added to a quote, with how many of it. */
+export interface QuoteCatalogLine {
+  partNumber: string;
+  qty: number;
+}
+
 export interface Pricelist {
   currency: string;
   firewalls: Firewall[];
   xdr: Xdr;
+  catalog: CatalogItem[];
 }
 export interface LineItem {
   key: string;
@@ -125,6 +145,9 @@ export interface Rates {
   markupMin: number;
   markupMax: number;
   costLimitMonthly: number; // default rolling-30d AI spend cap (USD); 0 = unlimited
+  // Reseller discount per PANW discount category (B = Subscriptions, D =
+  // Backline Support, ...). A category with no entry falls back to `discount`.
+  catalogDiscounts: Record<string, number>;
 }
 
 export type PortalView = "assistant" | "quotes" | "products" | "branding" | "admin";

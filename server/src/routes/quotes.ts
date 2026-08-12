@@ -41,6 +41,18 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     managed: !!body.managed,
     markup: Number(body.markup || 0),
     competitiveModel: typeof body.competitiveModel === "string" ? body.competitiveModel.trim() : "",
+    // Catalog SKUs (MSSP). Capped per line and in total so a tampered client
+    // can't inflate a quote; unknown part numbers are ignored by the engine.
+    catalogItems: Array.isArray(body.catalogItems)
+      ? body.catalogItems
+          .filter((c: unknown): c is { partNumber: unknown; qty: unknown } => !!c && typeof c === "object")
+          .map((c: { partNumber: unknown; qty: unknown }) => ({
+            partNumber: String(c.partNumber ?? "").trim().slice(0, 64),
+            qty: Math.min(10_000, Math.max(1, Math.floor(Number(c.qty) || 1))),
+          }))
+          .filter((c: { partNumber: string }) => !!c.partNumber)
+          .slice(0, 50)
+      : [],
   };
   if (!selection.sku || !selection.users) {
     return res.status(400).json({ error: "sku and users are required" });

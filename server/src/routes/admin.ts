@@ -43,9 +43,26 @@ adminRouter.get("/usage", async (_req, res) => {
 adminRouter.get("/rates", async (_req, res) => res.json(await getRates()));
 adminRouter.put("/rates", async (req, res) => {
   const body = req.body ?? {};
-  const keys: (keyof Rates)[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly"];
+  type NumericRateKey = Exclude<keyof Rates, "catalogDiscounts">;
+  const keys: NumericRateKey[] = ["discount", "competitiveBonus", "implRate", "managedRate", "markupDefault", "markupMin", "markupMax", "costLimitMonthly"];
   const next: Partial<Rates> = {};
   for (const k of keys) if (body[k] !== undefined && !Number.isNaN(Number(body[k]))) next[k] = Number(body[k]);
+
+  // Per-category reseller discounts, e.g. { "B": 0.35, "D": 0.2 }. Values are
+  // fractions in [0, 0.95]; anything unparseable is dropped rather than stored,
+  // and a category left out simply falls back to the base discount.
+  if (body.catalogDiscounts && typeof body.catalogDiscounts === "object") {
+    const clean: Record<string, number> = {};
+    for (const [cat, raw] of Object.entries(body.catalogDiscounts as Record<string, unknown>)) {
+      const code = String(cat).trim().toUpperCase().slice(0, 4);
+      const v = Number(raw);
+      // Reject rather than clamp anything outside [0, 0.95]: silently turning a
+      // mistyped "5" (meaning 5%) into 0.95 would give away 95% of the margin.
+      if (!code || !Number.isFinite(v) || v < 0 || v > 0.95) continue;
+      clean[code] = v;
+    }
+    next.catalogDiscounts = clean;
+  }
   res.json(await setRates(next));
 });
 

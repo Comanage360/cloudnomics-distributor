@@ -29,6 +29,21 @@ function line(
   return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service };
 }
 
+/**
+ * Reseller discount for a catalog SKU. PANW prices these by discount category
+ * (B = Subscriptions, D = Backline Support, ...); until an admin sets the real
+ * per-category rates every category falls back to the standard reseller
+ * discount, so nothing silently prices at 0.
+ *
+ * The competitive-upgrade bonus deliberately does NOT apply here — it is a
+ * firewall trade-in incentive, not a subscription discount.
+ */
+export function catalogDiscountFor(discountCategory: string, rates: Rates): number {
+  const configured = rates.catalogDiscounts?.[discountCategory];
+  const value = typeof configured === "number" && Number.isFinite(configured) ? configured : rates.discount;
+  return Math.min(0.95, Math.max(0, value));
+}
+
 /** Smallest priceable firewall that covers the user count, optionally by type. */
 export function pickFirewall(
   users: number,
@@ -102,6 +117,25 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
       const v = round(xdrReseller * implRate);
       items.push(line("xdrimpl", "Implementation — XDR", `${pct(implRate)} of XDR`, 1, v, v, true));
     }
+  }
+
+  // Catalog SKUs (MSSP subscriptions). Priced per discount category, quantity
+  // aware, and skipped silently if the part number isn't in the catalog.
+  for (const entry of selection.catalogItems ?? []) {
+    const item = pricelist.catalog?.find((c) => c.partNumber === entry.partNumber);
+    if (!item) continue;
+    const qty = Math.max(1, Math.floor(Number(entry.qty) || 1));
+    const label = `${item.partNumber} · ${item.model}`;
+
+    if (item.list == null || item.unit === "on_request") {
+      items.push(line(`cat:${item.partNumber}`, label, `${qty} × Contact for pricing`, qty, 0, 0, false));
+      continue;
+    }
+    const catDiscount = catalogDiscountFor(item.discountCategory, rates);
+    const listTotal = item.list * qty;
+    items.push(line(`cat:${item.partNumber}`, label,
+      `${qty} × $${item.list.toLocaleString("en-US")} · ${unitLabel(item.unit)} · ${pct(catDiscount)} off`,
+      qty, listTotal, round(listTotal * (1 - catDiscount)), false));
   }
 
   const subtotal = items.reduce((s, i) => s + i.reseller, 0);

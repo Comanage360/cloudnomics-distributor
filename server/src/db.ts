@@ -61,12 +61,40 @@ export async function loadPricelist(): Promise<Pricelist> {
       ORDER BY series ASC, max_users ASC NULLS LAST`
   );
 
+  // Catalog SKUs (MSSP subscriptions today). Tolerate the table being absent so
+  // an older database still boots before the migration has run.
+  let catalog: Pricelist["catalog"] = [];
+  try {
+    const rows = await query<{
+      part_number: string; model: string; category: string; description: string;
+      list_price: string | null; price_unit: string | null;
+      discount_category: string | null; tag: string | null;
+    }>(
+      `SELECT part_number, model, category, description, list_price,
+              price_unit, discount_category, tag
+         FROM catalog_items
+        ORDER BY model ASC, part_number ASC`
+    );
+    catalog = rows.rows.map((r) => ({
+      partNumber: r.part_number,
+      name: r.part_number,
+      model: r.model || "",
+      category: r.category || "",
+      description: r.description || "",
+      list: r.list_price == null ? null : Number(r.list_price),
+      unit: (r.price_unit as Pricelist["catalog"][number]["unit"]) || "one_time",
+      discountCategory: r.discount_category || "",
+      tag: r.tag || "",
+    }));
+  } catch { /* catalog_items not migrated yet — quote flow works without it */ }
+
   const settings = await query<{ key: string; value: unknown }>(
     "SELECT key, value FROM settings WHERE key IN ('xdr','currency')"
   );
   const map = Object.fromEntries(settings.rows.map((r) => [r.key, r.value]));
 
   return {
+    catalog,
     currency: (map.currency as string) || "USD",
     firewalls: fws.rows.map((r) => ({
       sku: r.model,
