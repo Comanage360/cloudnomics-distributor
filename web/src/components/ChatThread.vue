@@ -15,6 +15,34 @@ const effDiscount = computed(() =>
 );
 const discountPct = computed(() => Math.round(effDiscount.value * 100));
 const discounted = (list: number | null) => Math.round((list ?? 0) * (1 - effDiscount.value));
+
+/**
+ * Render an advisor reply as light HTML: **bold**, "- " bullets and line
+ * breaks. Deliberately not a markdown library — the text originates from the
+ * model, which can echo whatever the reseller typed, so everything is escaped
+ * first and only this fixed set of tags is reintroduced.
+ */
+function renderReply(raw: string): string {
+  const esc = raw
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const bold = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  const out: string[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) { out.push(`<ul>${list.map((i) => `<li>${i}</li>`).join("")}</ul>`); list = []; }
+  };
+  for (const line of esc.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) { flush(); continue; }
+    const bullet = /^([-*•]|\d+\.)\s+(.*)$/.exec(t);
+    if (bullet) list.push(bold(bullet[2]));
+    else { flush(); out.push(`<p>${bold(t)}</p>`); }
+  }
+  flush();
+  return out.join("");
+}
 </script>
 
 <template>
@@ -22,7 +50,10 @@ const discounted = (list: number | null) => Math.round((list ?? 0) * (1 - effDis
     <div v-for="m in messages" :key="m.id" class="row fade-up" :class="{ user: m.role === 'user' }">
       <BrandMark v-if="m.role === 'claude'" :size="26" />
       <div class="col">
-        <div class="bubble" :class="m.role">{{ m.text }}</div>
+        <!-- advisor replies get light formatting (escaped in renderReply);
+             user text stays plain so nothing they type can be interpreted -->
+        <div v-if="m.role === 'claude'" class="bubble claude rich" v-html="renderReply(m.text)"></div>
+        <div v-else class="bubble user">{{ m.text }}</div>
 
         <div v-if="m.card" class="rec">
           <div class="rec-head">
@@ -60,6 +91,13 @@ const discounted = (list: number | null) => Math.round((list ?? 0) * (1 - effDis
 .col { max-width: 78%; }
 .bubble { border-radius: 14px; padding: 11px 14px; font-size: 14px; line-height: 1.5; border: 1px solid var(--line); background: var(--surface); }
 .bubble.user { background: var(--ember-soft); border-color: var(--ember-line); }
+/* light formatting inside advisor replies */
+.rich :deep(p) { margin: 0 0 7px; }
+.rich :deep(p:last-child) { margin-bottom: 0; }
+.rich :deep(ul) { margin: 4px 0 8px; padding-left: 17px; }
+.rich :deep(ul:last-child) { margin-bottom: 0; }
+.rich :deep(li) { margin: 2px 0; }
+.rich :deep(strong) { font-weight: 700; }
 .typing { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; display: flex; gap: 5px; align-items: center; }
 
 .rec { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }

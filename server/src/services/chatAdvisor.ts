@@ -95,6 +95,7 @@ function buildSystem(pricelist: Pricelist, rates: Rates, state: ChatState): stri
     "OUTPUT CONTRACT — this overrides everything above. Your ENTIRE response must be a single minified JSON object and nothing else. Do not greet, explain, apologise or add any text before the opening { or after the closing }. Everything you want to say to the reseller goes inside the \"reply\" string.",
     "Respond with MINIFIED JSON ONLY — no markdown, no backticks, no prose outside the JSON. Keys:",
     '"reply": your next message to the reseller (1–3 warm, plain sentences).',
+    "REPLY FORMATTING — the reply string supports newlines (\\n), \"- \" bullets and **bold**. When you list more than two options, products or prices, put each on its own \"- \" bullet line with the name in **bold**, rather than running them together in a paragraph. Lead with one short sentence, then the bullets, then your question on its own line. Keep bullets to one line each. Never use headings, tables or links.",
     '"patch": an object with ONLY the fields you are setting THIS turn (any of: sku, users, fwImpl, xdr, xdrImpl, managed, competitiveModel, markup, customerName, customerEmail, catalogItems). Omit fields you are not changing. Use {} if none.',
     `"step": one of ${STEPS.join(", ")}.`,
     '"done": true ONLY when the quote is fully built and you are confirming it can be sent; otherwise false.',
