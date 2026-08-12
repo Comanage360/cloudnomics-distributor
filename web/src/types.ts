@@ -150,7 +150,7 @@ export interface Rates {
   catalogDiscounts: Record<string, number>;
 }
 
-export type PortalView = "assistant" | "quotes" | "products" | "branding" | "admin";
+export type PortalView = "assistant" | "quotes" | "products" | "catalog" | "branding" | "admin";
 
 export interface AdminQuote extends QuoteSummary {
   reseller_email: string;

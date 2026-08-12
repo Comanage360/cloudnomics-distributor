@@ -85,19 +85,25 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
   // from another vendor's product (e.g. Fortinet).
   const effDiscount = Math.min(0.95, rates.discount + (competitiveModel ? rates.competitiveBonus : 0));
 
-  const fw: Firewall =
-    pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
   const items: LineItem[] = [];
+
+  // A catalog-only quote (MSSP subscriptions, no firewall) is valid: skip the
+  // hardware lines entirely rather than falling back to a firewall nobody asked
+  // for. The guided flow always supplies a sku, so its behaviour is unchanged.
+  const catalogOnly = !sku && !!selection.catalogItems?.length;
+  const fw: Firewall | null = catalogOnly
+    ? null
+    : pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
 
   // On-request products (CN-Series) have no list price — quote them as a
   // "contact for pricing" line so totals stay valid and no implementation/
   // markup math is applied to a non-existent number.
-  if (fw.list == null || fw.unit === "on_request") {
+  if (fw && (fw.list == null || fw.unit === "on_request")) {
     items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false));
-  } else {
-    const fwReseller = round(fw.list * (1 - effDiscount));
+  } else if (fw) {
+    const fwReseller = round(fw.list! * (1 - effDiscount));
     items.push(
-      line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list, fwReseller, false)
+      line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list!, fwReseller, false)
     );
 
     if (fwImpl) {

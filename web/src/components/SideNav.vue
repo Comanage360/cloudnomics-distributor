@@ -26,6 +26,9 @@ const emit = defineEmits<{
       <button class="item" :class="{ active: view === 'products' }" @click="emit('navigate', 'products')">
         <Icon name="products" class="icon" /> Products
       </button>
+      <button class="item" :class="{ active: view === 'catalog' }" @click="emit('navigate', 'catalog')">
+        <Icon name="products" class="icon" /> MSSP catalog
+      </button>
     </div>
 
     <div v-if="isAdmin" class="section">

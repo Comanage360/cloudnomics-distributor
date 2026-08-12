@@ -43,6 +43,8 @@ export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates
   const items: LineItem[] = [];
   const IMPL = rates.implRate, MANAGED = rates.managedRate;
   const eff = Math.min(0.95, rates.discount + (sel.competitiveModel ? rates.competitiveBonus : 0));
+  // Mirror of the server: a catalog-only quote (MSSP subscriptions, no
+  // firewall) is valid and simply omits the hardware lines.
   if (sel.firewall) {
     const fw = sel.firewall;
     if (fw.list == null || fw.unit === "on_request") {

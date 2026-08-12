@@ -39,7 +39,27 @@ export const useQuote = defineStore("quote", () => {
   const sel = reactive<Selection>({
     firewall: null, users: 200, fwImpl: false,
     xdr: false, xdrImpl: false, managed: false, markup: 0, competitiveModel: "",
+    catalogItems: [],
   });
+
+  // ---- MSSP / global-list catalog SKUs on this quote ----
+  /** Add a SKU (or bump its quantity if already on the quote). */
+  function addCatalogItem(partNumber: string, qty = 1) {
+    const n = Math.max(1, Math.floor(qty) || 1);
+    const existing = sel.catalogItems?.find((c) => c.partNumber === partNumber);
+    if (existing) existing.qty = Math.min(10_000, existing.qty + n);
+    else (sel.catalogItems ??= []).push({ partNumber, qty: n });
+  }
+  function setCatalogQty(partNumber: string, qty: number) {
+    const item = sel.catalogItems?.find((c) => c.partNumber === partNumber);
+    if (item) item.qty = Math.min(10_000, Math.max(1, Math.floor(qty) || 1));
+  }
+  function removeCatalogItem(partNumber: string) {
+    if (sel.catalogItems) sel.catalogItems = sel.catalogItems.filter((c) => c.partNumber !== partNumber);
+  }
+  function catalogQty(partNumber: string): number {
+    return sel.catalogItems?.find((c) => c.partNumber === partNumber)?.qty ?? 0;
+  }
   const customer = reactive({ name: "", email: "" });
   const quoteNumber = ref<number | null>(null);
   const sent = ref(false);
@@ -104,6 +124,7 @@ export const useQuote = defineStore("quote", () => {
     sel.firewall = null; sel.users = 200; sel.fwImpl = false;
     sel.xdr = false; sel.xdrImpl = false; sel.managed = false; sel.markup = 0;
     sel.competitiveModel = "";
+    sel.catalogItems = [];
     customer.name = ""; customer.email = "";
     quoteNumber.value = null; sent.value = false;
     limited.value = false; limitInfo.value = null; limitRequested.value = false; limitModalOpen.value = false;
@@ -153,6 +174,7 @@ export const useQuote = defineStore("quote", () => {
         fwImpl: sel.fwImpl, xdr: sel.xdr, xdrImpl: sel.xdrImpl,
         managed: sel.managed, markup: sel.markup,
         competitiveModel: sel.competitiveModel,
+        catalogItems: sel.catalogItems ?? [],
         customerName: customer.name, customerEmail: customer.email,
         sessionId: sessionId.value, // links this session's AI usage to the quote
       });
@@ -235,6 +257,7 @@ export const useQuote = defineStore("quote", () => {
     pricelist, rates, messages, step, thinking, sel, customer, quoteNumber, sent, totals,
     limited, limitInfo, limitRequested, limitModalOpen, aiDegraded,
     openLimitRequest, closeLimitRequest, markLimitRequested,
+    addCatalogItem, setCatalogQty, removeCatalogItem, catalogQty,
     init, reset, sendMessage, setType, setFirewall, send, noteSent,
   };
 });

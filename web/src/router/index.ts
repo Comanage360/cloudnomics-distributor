@@ -8,6 +8,7 @@ import ConsoleView from "../pages/ConsoleView.vue";
 import AssistantView from "../pages/AssistantView.vue";
 import MyQuotesPage from "../components/MyQuotesPage.vue";
 import ProductsPage from "../components/ProductsPage.vue";
+import CatalogPage from "../components/CatalogPage.vue";
 import BrandingPage from "../components/BrandingPage.vue";
 import AdminPage from "../components/AdminPage.vue";
 
@@ -27,6 +28,7 @@ export const router = createRouter({
         { path: "", name: "assistant", component: AssistantView },
         { path: "quotes", name: "quotes", component: MyQuotesPage },
         { path: "products", name: "products", component: ProductsPage },
+        { path: "catalog", name: "catalog", component: CatalogPage },
         { path: "branding", name: "branding", component: BrandingPage },
         { path: "admin", name: "admin", component: AdminPage, meta: { admin: true } },
       ],

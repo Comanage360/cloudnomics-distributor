@@ -29,7 +29,7 @@ const menuOpen = ref(false); // account avatar dropdown
 
 const PATHS: Record<PortalView, string> = {
   assistant: "/", quotes: "/quotes",
-  products: "/products", branding: "/branding", admin: "/admin",
+  products: "/products", catalog: "/catalog", branding: "/branding", admin: "/admin",
 };
 const currentView = computed<PortalView>(() => (route.name as PortalView) || "assistant");
 
