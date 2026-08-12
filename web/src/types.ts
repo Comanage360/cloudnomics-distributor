@@ -67,7 +67,7 @@ export interface ChatMessage {
 }
 export type Step =
   | "intake" | "competitive" | "selectFw" | "fwImpl" | "xdr" | "xdrImpl"
-  | "managed" | "markup" | "whitelabel" | "send" | "done";
+  | "managed" | "mssp" | "markup" | "whitelabel" | "send" | "done";
 
 /** Fields the AI advisor can set on the selection/customer as it guides a session. */
 export interface ChatStatePatch {
@@ -81,6 +81,8 @@ export interface ChatStatePatch {
   markup?: number;
   customerName?: string;
   customerEmail?: string;
+  /** MSSP / global-list SKUs on the quote. A patch replaces the whole list. */
+  catalogItems?: QuoteCatalogLine[];
 }
 
 export interface AuthUser {

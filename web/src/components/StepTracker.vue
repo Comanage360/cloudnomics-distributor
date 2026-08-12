@@ -15,6 +15,7 @@ const stageOf: Record<Step, number> = {
   xdr: 3,
   xdrImpl: 3,
   managed: 4,
+  mssp: 4,     // MSSP subscriptions sit with the other services
   markup: 5,
   whitelabel: 5,
   send: 6,

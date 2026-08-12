@@ -14,6 +14,8 @@ export interface ChatState {
   markup?: number;
   customerName?: string;
   customerEmail?: string;
+  /** MSSP / global-list SKUs on the quote. A patch replaces the whole list. */
+  catalogItems?: { partNumber: string; qty: number }[];
 }
 
 export interface ChatTurn {
@@ -23,7 +25,7 @@ export interface ChatTurn {
 
 export const STEPS = [
   "intake", "competitive", "selectFw", "fwImpl", "xdr", "xdrImpl",
-  "managed", "markup", "whitelabel", "send", "done",
+  "managed", "mssp", "markup", "whitelabel", "send", "done",
 ] as const;
 export type Step = (typeof STEPS)[number];
 
@@ -52,6 +54,14 @@ function buildSystem(pricelist: Pricelist, rates: Rates, state: ChatState): stri
     })
     .join("\n");
 
+  // MSSP / global-list subscription SKUs the advisor may add to a quote.
+  const catalog = (pricelist.catalog ?? [])
+    .map((c) => {
+      const price = c.list == null ? "price on PANW quote" : `list ${fmt(c.list)}${c.unit === "annual" ? "/yr" : ""}`;
+      return `${c.partNumber} [${c.model}] ${c.description.slice(0, 90)} — ${price}`;
+    })
+    .join("\n");
+
   return [
     "You are the Cloudnomics Palo Alto Networks AI advisor. You guide a reseller who is NOT a Palo Alto expert through building a firewall quote — one friendly, plain-language step at a time (no jargon).",
     "You handle the WHOLE conversation: greet, recommend, and walk them through each decision warmly.",
@@ -66,19 +76,25 @@ function buildSystem(pricelist: Pricelist, rates: Rates, state: ChatState): stri
     "4 fwImpl: offer professional implementation (priced at a % of the hardware). Set patch.fwImpl. step=xdr afterwards.",
     "5 xdr: offer Cortex XDR Pro for their user count. Set patch.xdr. If yes step=xdrImpl, else step=managed.",
     "6 xdrImpl: only if XDR was added — offer XDR implementation. Set patch.xdrImpl. step=managed afterwards.",
-    "7 managed: offer a Cloudnomics managed service. Set patch.managed. step=markup afterwards.",
-    `8 markup: ask the customer markup % they want (allowed ${rates.markupMin}–${rates.markupMax}%, or 0 to sell at cost). Set patch.markup. step=whitelabel afterwards.`,
-    "9 whitelabel: capture the end customer's name and email. Set patch.customerName and patch.customerEmail. step=send afterwards.",
-    "10 send: confirm everything is ready and the branded quote can be sent. step=send and done=true.",
+    "7 managed: offer a Cloudnomics managed service. Set patch.managed. step=mssp afterwards.",
+    "8 mssp: offer MSSP subscription SKUs from the MSSP CATALOG below (Cortex XSIAM / XDR / XSOAR tenants, Xpanse, NGFW credits) — these suit resellers running a managed SOC. Set patch.catalogItems to the full list they want, e.g. [{\"partNumber\":\"PAN-XSIAM-MSSP\",\"qty\":1},{\"partNumber\":\"PAN-XSIAM-MSSP-TEN\",\"qty\":3}]. If they want none, set patch.catalogItems to []. step=markup afterwards.",
+    `9 markup: ask the customer markup % they want (allowed ${rates.markupMin}–${rates.markupMax}%, or 0 to sell at cost). Set patch.markup. step=whitelabel afterwards.`,
+    "10 whitelabel: capture the end customer's name and email. Set patch.customerName and patch.customerEmail. step=send afterwards.",
+    "11 send: confirm everything is ready and the branded quote can be sent. step=send and done=true.",
+    "",
+    "SUBSCRIPTION-ONLY DEALS: if the reseller's opening request is clearly about MSSP subscriptions and NOT a firewall (e.g. 'I need an XSIAM tenant for my SOC', 'quote me XSOAR for MSSP'), do NOT recommend a firewall. Leave patch.sku unset, set patch.catalogItems, and go straight to step=mssp, then markup. A quote made only of catalog SKUs is valid.",
     "",
     "CATALOG — only ever pick a SKU from this exact list. Never pick an on-request CN-Series product for a priced quote:",
     list,
+    "",
+    "MSSP CATALOG — the only part numbers you may put in patch.catalogItems. Copy them exactly:",
+    catalog || "(none imported)",
     "",
     `CURRENT STATE (already captured): ${JSON.stringify(state)}`,
     "",
     "Respond with MINIFIED JSON ONLY — no markdown, no backticks, no prose outside the JSON. Keys:",
     '"reply": your next message to the reseller (1–3 warm, plain sentences).',
-    '"patch": an object with ONLY the fields you are setting THIS turn (any of: sku, users, fwImpl, xdr, xdrImpl, managed, competitiveModel, markup, customerName, customerEmail). Omit fields you are not changing. Use {} if none.',
+    '"patch": an object with ONLY the fields you are setting THIS turn (any of: sku, users, fwImpl, xdr, xdrImpl, managed, competitiveModel, markup, customerName, customerEmail, catalogItems). Omit fields you are not changing. Use {} if none.',
     `"step": one of ${STEPS.join(", ")}.`,
     '"done": true ONLY when the quote is fully built and you are confirming it can be sent; otherwise false.',
   ].join("\n");
@@ -107,6 +123,24 @@ function sanitizePatch(p: ChatState | undefined, pricelist: Pricelist, rates: Ra
   if (p.markup != null && Number.isFinite(Number(p.markup))) {
     out.markup = Math.max(0, Math.min(rates.markupMax, Math.round(Number(p.markup))));
   }
+  if (Array.isArray(p.catalogItems)) {
+    // Only real part numbers from the imported catalog, deduped, sane quantity.
+    // The model can hallucinate a SKU; the quote must not price one.
+    const seen = new Set<string>();
+    out.catalogItems = p.catalogItems
+      .filter((c): c is { partNumber: string; qty: number } => !!c && typeof c === "object")
+      .map((c) => ({
+        partNumber: String(c.partNumber ?? "").trim(),
+        qty: Math.min(10_000, Math.max(1, Math.floor(Number(c.qty) || 1))),
+      }))
+      .filter((c) => {
+        if (!c.partNumber || seen.has(c.partNumber)) return false;
+        if (!(pricelist.catalog ?? []).some((k) => k.partNumber === c.partNumber)) return false;
+        seen.add(c.partNumber);
+        return true;
+      })
+      .slice(0, 50);
+  }
   if (typeof p.customerName === "string") out.customerName = p.customerName.trim().slice(0, 120);
   if (typeof p.customerEmail === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.customerEmail.trim())) {
     out.customerEmail = p.customerEmail.trim();
@@ -117,10 +151,11 @@ function sanitizePatch(p: ChatState | undefined, pricelist: Pricelist, rates: Ra
 /** Best-effort step if the model returns an unknown one. */
 function deriveStep(state: ChatState, patch: ChatState): Step {
   const s = { ...state, ...patch };
-  if (!s.sku) return "intake";
+  // A subscription-only quote never gets a sku, so don't send it back to intake.
+  if (!s.sku && !s.catalogItems?.length) return "intake";
   if (s.customerName && s.customerEmail) return "send";
   if (s.markup != null) return "whitelabel";
-  return "selectFw";
+  return s.sku ? "selectFw" : "mssp";
 }
 
 interface AnthropicResponse {

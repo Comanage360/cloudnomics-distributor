@@ -59,6 +59,13 @@ const quickOpts = computed<{ label: string; send: string }[]>(() => {
         { label: "Add managed service", send: "Yes, add the Cloudnomics managed service." },
         { label: "Skip", send: "No managed service." },
       ];
+    case "mssp":
+      return [
+        { label: "Cortex XSIAM (MSSP)", send: "Add the Cortex XSIAM MSSP parent tenant." },
+        { label: "Cortex XDR (MSSP)", send: "Add the Cortex XDR MSSP parent tenant." },
+        { label: "Browse catalog", send: "What MSSP subscriptions can you offer?" },
+        { label: "No MSSP", send: "No MSSP subscriptions for this quote." },
+      ];
     default:
       return [];
   }
