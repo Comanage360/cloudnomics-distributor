@@ -48,7 +48,7 @@ export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates
   if (sel.firewall) {
     const fw = sel.firewall;
     if (fw.list == null || fw.unit === "on_request") {
-      items.push({ key: "fw", label: `${fw.sku} · ${fw.name}`, meta: `Sized to ${sel.users} users · Contact for pricing`, qty: 1, listTotal: 0, reseller: 0, service: false });
+      items.push({ key: "fw", label: `${fw.sku} · ${fw.name}`, meta: `Sized to ${sel.users} users · Contact for pricing`, qty: 1, listTotal: 0, reseller: 0, service: false, onRequest: true });
     } else {
       const r = round(fw.list * (1 - eff));
       items.push({ key: "fw", label: `${fw.sku} · ${fw.name}`, meta: `Sized to ${sel.users} users · ${unitLabel(fw.unit)}`, qty: 1, listTotal: fw.list, reseller: r, service: false });
@@ -68,7 +68,7 @@ export function computeTotals(sel: Selection, pricelist: Pricelist | null, rates
     const qty = Math.max(1, Math.floor(Number(entry.qty) || 1));
     const label = `${item.partNumber} · ${item.model}`;
     if (item.list == null || item.unit === "on_request") {
-      items.push({ key: `cat:${item.partNumber}`, label, meta: `${qty} × Contact for pricing`, qty, listTotal: 0, reseller: 0, service: false });
+      items.push({ key: `cat:${item.partNumber}`, label, meta: `${qty} × Contact for pricing`, qty, listTotal: 0, reseller: 0, service: false, onRequest: true });
       continue;
     }
     const catDiscount = catalogDiscountFor(item.discountCategory, rates);

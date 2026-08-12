@@ -24,6 +24,7 @@ export interface CatalogItem {
   unit: Firewall["unit"];
   discountCategory: string; // A | B | C | D | ... — selects the reseller discount
   tag: string;
+  updatedAt: string | null; // last import
 }
 
 /** A catalog SKU added to a quote, with how many of it. */
@@ -46,6 +47,8 @@ export interface LineItem {
   listTotal: number;
   reseller: number;
   service: boolean;
+  /** No list price — show "On request", never a zero amount. */
+  onRequest?: boolean;
 }
 export interface QuoteTotals {
   items: LineItem[];

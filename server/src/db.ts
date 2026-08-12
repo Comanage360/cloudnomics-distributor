@@ -68,10 +68,10 @@ export async function loadPricelist(): Promise<Pricelist> {
     const rows = await query<{
       part_number: string; model: string; category: string; description: string;
       list_price: string | null; price_unit: string | null;
-      discount_category: string | null; tag: string | null;
+      discount_category: string | null; tag: string | null; updated_at: string | null;
     }>(
       `SELECT part_number, model, category, description, list_price,
-              price_unit, discount_category, tag
+              price_unit, discount_category, tag, updated_at
          FROM catalog_items
         ORDER BY model ASC, part_number ASC`
     );
@@ -85,6 +85,7 @@ export async function loadPricelist(): Promise<Pricelist> {
       unit: (r.price_unit as Pricelist["catalog"][number]["unit"]) || "one_time",
       discountCategory: r.discount_category || "",
       tag: r.tag || "",
+      updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null,
     }));
   } catch { /* catalog_items not migrated yet — quote flow works without it */ }
 

@@ -24,9 +24,10 @@ function line(
   qty: number,
   listTotal: number,
   reseller: number,
-  service: boolean
+  service: boolean,
+  onRequest = false
 ): LineItem {
-  return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service };
+  return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service, onRequest };
 }
 
 /**
@@ -99,7 +100,7 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
   // "contact for pricing" line so totals stay valid and no implementation/
   // markup math is applied to a non-existent number.
   if (fw && (fw.list == null || fw.unit === "on_request")) {
-    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false));
+    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false, true));
   } else if (fw) {
     const fwReseller = round(fw.list! * (1 - effDiscount));
     items.push(
@@ -134,7 +135,7 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
     const label = `${item.partNumber} · ${item.model}`;
 
     if (item.list == null || item.unit === "on_request") {
-      items.push(line(`cat:${item.partNumber}`, label, `${qty} × Contact for pricing`, qty, 0, 0, false));
+      items.push(line(`cat:${item.partNumber}`, label, `${qty} × Contact for pricing`, qty, 0, 0, false, true));
       continue;
     }
     const catDiscount = catalogDiscountFor(item.discountCategory, rates);

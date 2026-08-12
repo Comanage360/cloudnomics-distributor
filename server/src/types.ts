@@ -27,6 +27,7 @@ export interface CatalogItem {
   unit: PriceUnit;
   discountCategory: string;  // A | B | C | D | ... — selects the reseller discount
   tag: string;               // catalog grouping, e.g. 'mssp'
+  updatedAt: string | null;  // last import — tells an admin how current this is
 }
 
 export interface Pricelist {
@@ -95,6 +96,9 @@ export interface LineItem {
   listTotal: number;
   reseller: number;
   service: boolean;
+  /** No list price — quote it with the vendor. Rendered as "On request"
+   *  rather than a zero amount, which would read as free on a customer PDF. */
+  onRequest?: boolean;
 }
 
 export interface QuoteTotals {

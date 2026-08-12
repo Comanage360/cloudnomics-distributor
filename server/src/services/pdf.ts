@@ -53,7 +53,9 @@ export function renderQuotePdf(input: QuotePdfInput): Promise<Buffer> {
 
   // Customer-facing rows (list price, effective discount off list, amount).
   const rows = totals.items.map((it) => {
-    const onRequest = it.key === "fw" && it.reseller === 0;
+    // The engine flags lines with no list price. Fall back to the old
+    // firewall-only heuristic for totals produced before that flag existed.
+    const onRequest = it.onRequest ?? (it.key === "fw" && it.reseller === 0);
     const amount = Math.round(it.reseller * markupMult);
     const showDisc = !onRequest && it.listTotal > 0 && it.listTotal >= amount;
     return {

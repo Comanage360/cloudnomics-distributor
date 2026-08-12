@@ -6,10 +6,11 @@ import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
 import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
-import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest, AuthEventRow } from "../types";
+import { catalogDiscountFor } from "../pricing";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest, AuthEventRow, CatalogItem } from "../types";
 
 const toast = useToast();
-type Tab = "resellers" | "usage" | "rates" | "limits" | "activity";
+type Tab = "resellers" | "usage" | "rates" | "limits" | "activity" | "catalog";
 const tab = ref<Tab>("resellers");
 const authEvents = ref<AuthEventRow[]>([]);
 
@@ -281,8 +282,37 @@ function go(t: Tab) {
   if (t === "rates" && !rates.value) loadRates();
   if (t === "limits") loadLimits();
   if (t === "activity") loadActivity();
+  if (t === "catalog") loadCatalog();
 }
 onMounted(loadResellers);
+
+// ---- Catalog tab: imported global-list SKUs (read-only) ----
+const catalog = ref<CatalogItem[] | null>(null);
+const catalogLoading = ref(false);
+async function loadCatalog() {
+  if (catalog.value || catalogLoading.value) return;
+  catalogLoading.value = true;
+  try {
+    if (!rates.value) await loadRates();       // needed to resolve each SKU's discount
+    catalog.value = (await api.pricelist()).catalog ?? [];
+  } catch (e) { toast.show((e as Error).message); }
+  finally { catalogLoading.value = false; }
+}
+
+/** Discount actually applied to a SKU under the current per-category rates. */
+function catalogRate(i: CatalogItem): number {
+  return rates.value ? catalogDiscountFor(i.discountCategory, rates.value) : 0;
+}
+function catalogReseller(i: CatalogItem): string {
+  if (i.list == null) return "Per PANW quote";
+  return money(Math.round(i.list * (1 - catalogRate(i))));
+}
+/** Most recent import timestamp across the catalog. */
+const catalogUpdated = computed(() => {
+  const stamps = (catalog.value ?? []).map((i) => i.updatedAt).filter(Boolean) as string[];
+  if (!stamps.length) return "";
+  return new Date(stamps.sort().at(-1)!).toLocaleString();
+});
 
 /** Rates that are plain numbers — excludes the per-category discount map. */
 type NumericRateKey = Exclude<keyof Rates, "catalogDiscounts">;
@@ -350,6 +380,7 @@ function clampRate(f: { key: NumericRateKey; max: number }) {
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
       <button :class="{ on: tab === 'limits' }" @click="go('limits')">Usage limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
+      <button :class="{ on: tab === 'catalog' }" @click="go('catalog')">MSSP catalog</button>
       <button :class="{ on: tab === 'activity' }" @click="go('activity')">Activity</button>
     </div>
 
@@ -638,6 +669,47 @@ function clampRate(f: { key: NumericRateKey; max: number }) {
         </tbody>
       </table>
       <div class="tablecount">{{ authEvents.length }} events</div>
+    </section>
+
+    <!-- MSSP catalog (read-only; refreshed by re-running the importer) -->
+    <section v-else-if="tab === 'catalog'">
+      <Skeleton v-if="catalogLoading" :rows="6" />
+      <template v-else>
+        <p class="hint">
+          SKUs imported from the PANW global price list.
+          <template v-if="catalogUpdated">Last imported {{ catalogUpdated }}.</template>
+          Prices are refreshed by re-running the importer against a new workbook, not edited here —
+          the discount applied comes from the category rates on “Discounts &amp; markup”.
+        </p>
+        <p v-if="!catalog?.length" class="hint">No catalog SKUs imported yet.</p>
+        <div v-else class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part number</th>
+                <th>Model</th>
+                <th>Category</th>
+                <th class="num">List</th>
+                <th class="num">Disc. cat.</th>
+                <th class="num">Applied</th>
+                <th class="num">Reseller price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in catalog" :key="i.partNumber">
+                <td>{{ i.partNumber }}</td>
+                <td>{{ i.model }}</td>
+                <td>{{ i.category }}</td>
+                <td class="num">{{ i.list == null ? "Per PANW quote" : money(i.list) }}</td>
+                <td class="num">{{ i.discountCategory || "—" }}</td>
+                <td class="num">{{ Math.round(catalogRate(i) * 100) }}%</td>
+                <td class="num">{{ catalogReseller(i) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tablecount">{{ catalog?.length ?? 0 }} SKUs</div>
+      </template>
     </section>
 
     <!-- Pricing rates -->
