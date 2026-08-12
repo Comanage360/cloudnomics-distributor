@@ -58,7 +58,7 @@ function buildSystem(pricelist: Pricelist, rates: Rates, state: ChatState): stri
   const catalog = (pricelist.catalog ?? [])
     .map((c) => {
       const price = c.list == null ? "price on PANW quote" : `list ${fmt(c.list)}${c.unit === "annual" ? "/yr" : ""}`;
-      return `${c.partNumber} [${c.model}] ${c.description.slice(0, 90)} — ${price}`;
+      return `${c.partNumber} [${c.model}] ${c.description.slice(0, 55)} — ${price}`;
     })
     .join("\n");
 
@@ -92,6 +92,7 @@ function buildSystem(pricelist: Pricelist, rates: Rates, state: ChatState): stri
     "",
     `CURRENT STATE (already captured): ${JSON.stringify(state)}`,
     "",
+    "OUTPUT CONTRACT — this overrides everything above. Your ENTIRE response must be a single minified JSON object and nothing else. Do not greet, explain, apologise or add any text before the opening { or after the closing }. Everything you want to say to the reseller goes inside the \"reply\" string.",
     "Respond with MINIFIED JSON ONLY — no markdown, no backticks, no prose outside the JSON. Keys:",
     '"reply": your next message to the reseller (1–3 warm, plain sentences).',
     '"patch": an object with ONLY the fields you are setting THIS turn (any of: sku, users, fwImpl, xdr, xdrImpl, managed, competitiveModel, markup, customerName, customerEmail, catalogItems). Omit fields you are not changing. Use {} if none.',
@@ -158,6 +159,35 @@ function deriveStep(state: ChatState, patch: ChatState): Step {
   return s.sku ? "selectFw" : "mssp";
 }
 
+/**
+ * Pull the advisor's JSON envelope out of a model reply. The contract is
+ * JSON-only, but a long system prompt makes the model occasionally wrap it in
+ * prose ("Got it! Here you go: {...}") or emit prose alone. Scanning for the
+ * first balanced object recovers the former; the latter returns null and the
+ * caller falls back to treating the whole reply as chat text.
+ */
+export function extractEnvelope(raw: string): { reply?: string; patch?: ChatState; step?: string; done?: boolean } | null {
+  const text = raw.replace(/```json|```/g, "").trim();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { /* fall through to scanning */ }
+
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) {
+      try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
+    }
+  }
+  return null;
+}
+
 interface AnthropicResponse {
   content?: { type: string; text?: string }[];
   usage?: { input_tokens?: number; output_tokens?: number };
@@ -214,7 +244,26 @@ export async function advise(
       .join("")
       .replace(/```json|```/g, "")
       .trim();
-    const parsed = JSON.parse(text) as { reply?: string; patch?: ChatState; step?: string; done?: boolean };
+    const parsed = extractEnvelope(text);
+    if (!parsed) {
+      // The model answered, but in prose rather than the JSON envelope. Its text
+      // is still a usable reply, so show it and derive the step instead of
+      // dropping to the offline fallback and telling the reseller the advisor is
+      // down — it isn't. No patch this turn; the next turn recovers.
+      console.warn("[chat] non-JSON reply, using text as-is:", text.slice(0, 120));
+      return {
+        reply: text || "Let's keep building your quote.",
+        patch: {},
+        step: deriveStep(state, {}),
+        done: false,
+        usage: {
+          model: config.anthropic.model,
+          inputTokens: data.usage?.input_tokens ?? 0,
+          outputTokens: data.usage?.output_tokens ?? 0,
+        },
+        aiDegraded: false,
+      };
+    }
     const patch = sanitizePatch(parsed.patch, pricelist, rates);
     const step = (STEPS as readonly string[]).includes(parsed.step || "")
       ? (parsed.step as Step)
