@@ -15,6 +15,25 @@ CREATE TABLE IF NOT EXISTS products (
   notes             TEXT
 );
 
+-- Catalog SKUs from the PANW GLOBAL price list (MSSP subscriptions today).
+-- Separate from `products`: those are firewalls keyed by model and sized by user
+-- count, whereas these are subscription/support SKUs where several rows share a
+-- model (e.g. seven XSOAR SKUs), so the part number is the only safe key.
+CREATE TABLE IF NOT EXISTS catalog_items (
+  part_number       TEXT PRIMARY KEY,
+  category          TEXT,             -- Subscription | Support | Hardware | ...
+  product           TEXT,             -- Demisto | XSIAM | Expanse | ...
+  model             TEXT,             -- XSOAR | XSIAM | Cortex-XDR | ...
+  description       TEXT,
+  list_price        NUMERIC,          -- NULL when quoted per PANW
+  price_unit        TEXT,             -- one_time | annual | on_request
+  discount_category TEXT,             -- A | B | C | D | ... (drives the reseller discount)
+  tag               TEXT,             -- catalog grouping, e.g. 'mssp'
+  eol_date          TEXT,
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_items_tag ON catalog_items(tag);
+
 -- Non-tabular reference data (XDR per-user pricing, currency).
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,

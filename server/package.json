@@ -11,6 +11,7 @@
     "migrate": "tsx src/db.ts --migrate",
     "typecheck": "tsc --noEmit",
     "import:pricelist": "tsx scripts/import-pricelist.ts",
+    "import:catalog": "tsx scripts/import-catalog.ts",
     "set-password": "tsx scripts/set-password.ts"
   },
   "dependencies": {
