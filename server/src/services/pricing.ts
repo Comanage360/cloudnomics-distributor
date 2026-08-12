@@ -24,9 +24,25 @@ function line(
   qty: number,
   listTotal: number,
   reseller: number,
-  service: boolean
+  service: boolean,
+  onRequest = false
 ): LineItem {
-  return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service };
+  return { key, label, meta, qty, listTotal: round(listTotal), reseller: round(reseller), service, onRequest };
+}
+
+/**
+ * Reseller discount for a catalog SKU. PANW prices these by discount category
+ * (B = Subscriptions, D = Backline Support, ...); until an admin sets the real
+ * per-category rates every category falls back to the standard reseller
+ * discount, so nothing silently prices at 0.
+ *
+ * The competitive-upgrade bonus deliberately does NOT apply here — it is a
+ * firewall trade-in incentive, not a subscription discount.
+ */
+export function catalogDiscountFor(discountCategory: string, rates: Rates): number {
+  const configured = rates.catalogDiscounts?.[discountCategory];
+  const value = typeof configured === "number" && Number.isFinite(configured) ? configured : rates.discount;
+  return Math.min(0.95, Math.max(0, value));
 }
 
 /** Smallest priceable firewall that covers the user count, optionally by type. */
@@ -70,19 +86,25 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
   // from another vendor's product (e.g. Fortinet).
   const effDiscount = Math.min(0.95, rates.discount + (competitiveModel ? rates.competitiveBonus : 0));
 
-  const fw: Firewall =
-    pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
   const items: LineItem[] = [];
+
+  // A catalog-only quote (MSSP subscriptions, no firewall) is valid: skip the
+  // hardware lines entirely rather than falling back to a firewall nobody asked
+  // for. The guided flow always supplies a sku, so its behaviour is unchanged.
+  const catalogOnly = !sku && !!selection.catalogItems?.length;
+  const fw: Firewall | null = catalogOnly
+    ? null
+    : pricelist.firewalls.find((f) => f.sku === sku) || pickFirewall(users, pricelist);
 
   // On-request products (CN-Series) have no list price — quote them as a
   // "contact for pricing" line so totals stay valid and no implementation/
   // markup math is applied to a non-existent number.
-  if (fw.list == null || fw.unit === "on_request") {
-    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false));
-  } else {
-    const fwReseller = round(fw.list * (1 - effDiscount));
+  if (fw && (fw.list == null || fw.unit === "on_request")) {
+    items.push(line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · Contact for pricing`, 1, 0, 0, false, true));
+  } else if (fw) {
+    const fwReseller = round(fw.list! * (1 - effDiscount));
     items.push(
-      line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list, fwReseller, false)
+      line("fw", `${fw.sku} · ${fw.name}`, `Sized to ${users} users · ${unitLabel(fw.unit)}`, 1, fw.list!, fwReseller, false)
     );
 
     if (fwImpl) {
@@ -102,6 +124,25 @@ export function buildQuote(selection: QuoteSelection, pricelist: Pricelist, rate
       const v = round(xdrReseller * implRate);
       items.push(line("xdrimpl", "Implementation — XDR", `${pct(implRate)} of XDR`, 1, v, v, true));
     }
+  }
+
+  // Catalog SKUs (MSSP subscriptions). Priced per discount category, quantity
+  // aware, and skipped silently if the part number isn't in the catalog.
+  for (const entry of selection.catalogItems ?? []) {
+    const item = pricelist.catalog?.find((c) => c.partNumber === entry.partNumber);
+    if (!item) continue;
+    const qty = Math.max(1, Math.floor(Number(entry.qty) || 1));
+    const label = `${item.partNumber} · ${item.model}`;
+
+    if (item.list == null || item.unit === "on_request") {
+      items.push(line(`cat:${item.partNumber}`, label, `${qty} × Contact for pricing`, qty, 0, 0, false, true));
+      continue;
+    }
+    const catDiscount = catalogDiscountFor(item.discountCategory, rates);
+    const listTotal = item.list * qty;
+    items.push(line(`cat:${item.partNumber}`, label,
+      `${qty} × $${item.list.toLocaleString("en-US")} · ${unitLabel(item.unit)} · ${pct(catDiscount)} off`,
+      qty, listTotal, round(listTotal * (1 - catDiscount)), false));
   }
 
   const subtotal = items.reduce((s, i) => s + i.reseller, 0);

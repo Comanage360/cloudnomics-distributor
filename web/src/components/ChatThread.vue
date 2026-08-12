@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { money } from "../theme";
 import BrandMark from "./BrandMark.vue";
+import { useQuote } from "../stores/quote";
 import type { ChatMessage } from "../types";
 
 defineProps<{ messages: ChatMessage[]; thinking: boolean }>();
-const discounted = (list: number | null) => Math.round((list ?? 0) * 0.7);
+
+// Mirror the pricing engine's effective discount so the card never contradicts
+// the quote totals — a competitive upgrade adds the bonus on top of the base rate.
+const q = useQuote();
+const effDiscount = computed(() =>
+  Math.min(0.95, q.rates.discount + (q.sel.competitiveModel ? q.rates.competitiveBonus : 0))
+);
+const discountPct = computed(() => Math.round(effDiscount.value * 100));
+const discounted = (list: number | null) => Math.round((list ?? 0) * (1 - effDiscount.value));
 </script>
 
 <template>
@@ -29,7 +39,7 @@ const discounted = (list: number | null) => Math.round((list ?? 0) * 0.7);
             <div v-else class="price">
               <div class="strike">{{ money(m.card.firewall.list || 0) }}</div>
               <div class="now">{{ money(discounted(m.card.firewall.list)) }}</div>
-              <div class="tag">your price · 30% off{{ m.card.firewall.unit === 'annual' ? ' · /yr' : '' }}</div>
+              <div class="tag">your price · {{ discountPct }}% off{{ m.card.firewall.unit === 'annual' ? ' · /yr' : '' }}</div>
             </div>
           </div>
         </div>

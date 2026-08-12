@@ -24,6 +24,19 @@ export interface ParsedPricelist {
   xdr: { sku: string; name: string; listPerUser: number };
 }
 
+/** A SKU from the PANW GLOBAL price list (subscriptions/support, not firewalls). */
+export interface ParsedCatalogItem {
+  partNumber: string;
+  category: string;
+  product: string;
+  model: string;
+  description: string;
+  listPrice: number | null;
+  priceUnit: ParsedProduct["priceUnit"];
+  discountCategory: string;
+  eolDate: string;
+}
+
 function parseMaxUsers(text: string): number | null {
   const nums = (text.match(/[\d,]+/g) || []).map((n) => parseInt(n.replace(/,/g, ""), 10));
   if (!nums.length) return null;
@@ -34,10 +47,13 @@ function parseMaxUsers(text: string): number | null {
 
 function parsePrice(text: string): { price: number | null; unit: ParsedProduct["priceUnit"] } {
   const t = String(text);
-  if (/request/i.test(t)) return { price: null, unit: "on_request" };
+  // "on request" (Cloudnomics sheet) and "PER PANW QUOTE" (PANW global sheet)
+  // both mean the same thing: no list price, quote it with the vendor.
+  if (/request/i.test(t) || /per\s+panw\s+quote/i.test(t)) return { price: null, unit: "on_request" };
   const unit: ParsedProduct["priceUnit"] = /\/yr/i.test(t) ? "annual" : "one_time";
   const cleaned = t.replace(/,/g, "").replace(/[^\d.]/g, "");
   const price = cleaned ? Number(cleaned) : null;
+  if (price == null) return { price: null, unit: "on_request" }; // no number = not priceable
   return { price, unit };
 }
 
@@ -102,6 +118,115 @@ export function parseWorkbook(path: string): ParsedPricelist {
   }
 
   return { currency: "USD", products, xdr };
+}
+
+/** Extract the "(B)" from a discount label like "Subscription (B)". */
+function parseDiscountCategory(text: string): string {
+  const m = /\(([^)]+)\)\s*$/.exec(String(text).trim());
+  return m ? m[1].trim() : "";
+}
+
+/**
+ * Parse the PANW GLOBAL price list sheet, keeping only SKUs whose part number
+ * matches `filter` (default: MSSP). That sheet is ~10k rows across every PANW
+ * product line, so a filter is required — importing it wholesale would swamp
+ * the catalog. The "INTERNAL ONLY" sheet is never read.
+ */
+export function parseGlobalCatalog(
+  path: string,
+  filter: RegExp = /MSSP/i
+): ParsedCatalogItem[] {
+  const wb = XLSX.read(readFileSync(path), { type: "buffer" });
+  const ws = wb.Sheets["GLOBAL Price List"];
+  if (!ws) throw new Error('Sheet "GLOBAL Price List" not found in the workbook');
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: false, blankrows: false });
+
+  // The sheet has a few banner rows above the real header.
+  const headerIdx = rows.findIndex(
+    (r) => r.some((c) => /^part name$/i.test(cell(c))) && r.some((c) => /price/i.test(cell(c)))
+  );
+  if (headerIdx < 0) throw new Error("Could not find the GLOBAL price list header row");
+
+  const header = rows[headerIdx].map((c) => cell(c));
+  const col = (name: RegExp) => header.findIndex((h) => name.test(h));
+  const idx = {
+    category: col(/product category/i),
+    product: col(/^product$/i),
+    model: col(/^model$/i),
+    part: col(/^part name$/i),
+    description: col(/^description$/i),
+    price: col(/price/i),
+    discount: col(/^discount/i),
+    eol: col(/end-of-life/i),
+  };
+
+  const items: ParsedCatalogItem[] = [];
+  const seen = new Set<string>();
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const partNumber = cell(r[idx.part]);
+    if (!partNumber || !filter.test(partNumber)) continue;
+    if (seen.has(partNumber)) continue; // the sheet can repeat a SKU
+    seen.add(partNumber);
+
+    const { price, unit } = parsePrice(cell(r[idx.price]));
+    const category = cell(r[idx.category]);
+    // The global sheet carries no "/yr" marker, so the term has to come from the
+    // category. PANW subscription SKUs are sold on an annual term — ASSUMPTION,
+    // confirm with PANW before these prices are used in a customer quote.
+    const priceUnit: ParsedProduct["priceUnit"] =
+      unit === "on_request" ? "on_request" : /subscription/i.test(category) ? "annual" : unit;
+
+    items.push({
+      partNumber,
+      category,
+      product: cell(r[idx.product]),
+      model: cell(r[idx.model]),
+      description: cell(r[idx.description]),
+      listPrice: price,
+      priceUnit,
+      discountCategory: parseDiscountCategory(cell(r[idx.discount])),
+      eolDate: cell(r[idx.eol]),
+    });
+  }
+  return items;
+}
+
+/** Parse + write catalog SKUs to Postgres (idempotent, upsert by part number). */
+export async function importGlobalCatalog(
+  path: string,
+  tag = "mssp",
+  filter: RegExp = /MSSP/i
+): Promise<ParsedCatalogItem[]> {
+  const items = parseGlobalCatalog(path, filter);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const it of items) {
+      await client.query(
+        `INSERT INTO catalog_items
+           (part_number, category, product, model, description,
+            list_price, price_unit, discount_category, tag, eol_date, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+         ON CONFLICT (part_number) DO UPDATE SET
+           category=EXCLUDED.category, product=EXCLUDED.product, model=EXCLUDED.model,
+           description=EXCLUDED.description, list_price=EXCLUDED.list_price,
+           price_unit=EXCLUDED.price_unit, discount_category=EXCLUDED.discount_category,
+           tag=EXCLUDED.tag, eol_date=EXCLUDED.eol_date, updated_at=now()`,
+        [
+          it.partNumber, it.category, it.product, it.model, it.description,
+          it.listPrice, it.priceUnit, it.discountCategory, tag, it.eolDate,
+        ]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  return items;
 }
 
 /** Parse + write the pricelist to Postgres (idempotent). */

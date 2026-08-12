@@ -6,10 +6,11 @@ import Skeleton from "./Skeleton.vue";
 import Pagination from "./Pagination.vue";
 import DatePicker from "primevue/datepicker";
 import { useToast } from "../stores/toast";
-import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest, AuthEventRow } from "../types";
+import { catalogDiscountFor } from "../pricing";
+import type { AdminReseller, AdminQuote, UsageReport, UsageRow, Rates, LimitRequest, AuthEventRow, CatalogItem } from "../types";
 
 const toast = useToast();
-type Tab = "resellers" | "usage" | "rates" | "limits" | "activity";
+type Tab = "resellers" | "usage" | "rates" | "limits" | "activity" | "catalog";
 const tab = ref<Tab>("resellers");
 const authEvents = ref<AuthEventRow[]>([]);
 
@@ -281,10 +282,42 @@ function go(t: Tab) {
   if (t === "rates" && !rates.value) loadRates();
   if (t === "limits") loadLimits();
   if (t === "activity") loadActivity();
+  if (t === "catalog") loadCatalog();
 }
 onMounted(loadResellers);
 
-const rateFields: { key: keyof Rates; label: string; desc: string; max: number; step: number }[] = [
+// ---- Catalog tab: imported global-list SKUs (read-only) ----
+const catalog = ref<CatalogItem[] | null>(null);
+const catalogLoading = ref(false);
+async function loadCatalog() {
+  if (catalog.value || catalogLoading.value) return;
+  catalogLoading.value = true;
+  try {
+    if (!rates.value) await loadRates();       // needed to resolve each SKU's discount
+    catalog.value = (await api.pricelist()).catalog ?? [];
+  } catch (e) { toast.show((e as Error).message); }
+  finally { catalogLoading.value = false; }
+}
+
+/** Discount actually applied to a SKU under the current per-category rates. */
+function catalogRate(i: CatalogItem): number {
+  return rates.value ? catalogDiscountFor(i.discountCategory, rates.value) : 0;
+}
+function catalogReseller(i: CatalogItem): string {
+  if (i.list == null) return "Per PANW quote";
+  return money(Math.round(i.list * (1 - catalogRate(i))));
+}
+/** Most recent import timestamp across the catalog. */
+const catalogUpdated = computed(() => {
+  const stamps = (catalog.value ?? []).map((i) => i.updatedAt).filter(Boolean) as string[];
+  if (!stamps.length) return "";
+  return new Date(stamps.sort().at(-1)!).toLocaleString();
+});
+
+/** Rates that are plain numbers — excludes the per-category discount map. */
+type NumericRateKey = Exclude<keyof Rates, "catalogDiscounts">;
+
+const rateFields: { key: NumericRateKey; label: string; desc: string; max: number; step: number }[] = [
   { key: "discount", label: "Reseller discount", max: 1, step: 0.01,
     desc: "Base discount off Palo Alto product list prices. Decimal — 0.30 = 30% off." },
   { key: "competitiveBonus", label: "Competitive upgrade bonus", max: 1, step: 0.01,
@@ -301,8 +334,34 @@ const rateFields: { key: keyof Rates; label: string; desc: string; max: number; 
     desc: "Highest markup a reseller can set on the slider. Percentage." },
 ];
 
+// PANW discount categories, per the global price list legend. Only the ones the
+// imported catalog actually uses are exposed; the rest fall back to the base rate.
+const catalogCategories = [
+  { code: "B", label: "Subscriptions" },
+  { code: "D", label: "Backline Support" },
+  { code: "A", label: "Hardware" },
+  { code: "C", label: "Frontline Support / Training" },
+  { code: "E", label: "Professional Services" },
+];
+
+/** Current override for a category, or "" when it inherits the base discount. */
+function catalogDiscountInput(code: string): number | "" {
+  const v = rates.value?.catalogDiscounts?.[code];
+  return typeof v === "number" ? v : "";
+}
+
+/** Set/clear a per-category override. Empty input removes it (inherit base). */
+function setCatalogDiscount(code: string, raw: string) {
+  if (!rates.value) return;
+  const map = { ...(rates.value.catalogDiscounts ?? {}) };
+  const v = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(v)) delete map[code];
+  else map[code] = Math.max(0, Math.min(0.95, v));
+  rates.value.catalogDiscounts = map;
+}
+
 /** Keep a rate within [0, its max] (decimals capped at 1, markup % at 100). */
-function clampRate(f: { key: keyof Rates; max: number }) {
+function clampRate(f: { key: NumericRateKey; max: number }) {
   if (!rates.value) return;
   const v = Number(rates.value[f.key]);
   rates.value[f.key] = Math.max(0, Math.min(f.max, Number.isFinite(v) ? v : 0));
@@ -321,6 +380,7 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       <button :class="{ on: tab === 'usage' }" @click="go('usage')">Token usage</button>
       <button :class="{ on: tab === 'limits' }" @click="go('limits')">Usage limits</button>
       <button :class="{ on: tab === 'rates' }" @click="go('rates')">Discounts &amp; markup</button>
+      <button :class="{ on: tab === 'catalog' }" @click="go('catalog')">MSSP catalog</button>
       <button :class="{ on: tab === 'activity' }" @click="go('activity')">Activity</button>
     </div>
 
@@ -611,6 +671,47 @@ function clampRate(f: { key: keyof Rates; max: number }) {
       <div class="tablecount">{{ authEvents.length }} events</div>
     </section>
 
+    <!-- MSSP catalog (read-only; refreshed by re-running the importer) -->
+    <section v-else-if="tab === 'catalog'">
+      <Skeleton v-if="catalogLoading" :rows="6" />
+      <template v-else>
+        <p class="hint">
+          SKUs imported from the PANW global price list.
+          <template v-if="catalogUpdated">Last imported {{ catalogUpdated }}.</template>
+          Prices are refreshed by re-running the importer against a new workbook, not edited here —
+          the discount applied comes from the category rates on “Discounts &amp; markup”.
+        </p>
+        <p v-if="!catalog?.length" class="hint">No catalog SKUs imported yet.</p>
+        <div v-else class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part number</th>
+                <th>Model</th>
+                <th>Category</th>
+                <th class="num">List</th>
+                <th class="num">Disc. cat.</th>
+                <th class="num">Applied</th>
+                <th class="num">Reseller price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in catalog" :key="i.partNumber">
+                <td>{{ i.partNumber }}</td>
+                <td>{{ i.model }}</td>
+                <td>{{ i.category }}</td>
+                <td class="num">{{ i.list == null ? "Per PANW quote" : money(i.list) }}</td>
+                <td class="num">{{ i.discountCategory || "—" }}</td>
+                <td class="num">{{ Math.round(catalogRate(i) * 100) }}%</td>
+                <td class="num">{{ catalogReseller(i) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tablecount">{{ catalog?.length ?? 0 }} SKUs</div>
+      </template>
+    </section>
+
     <!-- Pricing rates -->
     <section v-else>
       <Skeleton v-if="!rates" :rows="4" />
@@ -623,6 +724,23 @@ function clampRate(f: { key: keyof Rates; max: number }) {
             <input type="number" min="0" :max="f.max" :step="f.step" v-model.number="rates[f.key]" @change="clampRate(f)" />
           </label>
         </div>
+        <h3 class="subhead">Catalog discounts by PANW category</h3>
+        <p class="hint">
+          Reseller discount applied to MSSP / global-list SKUs, per PANW discount category.
+          Leave a category blank to fall back to the base reseller discount above.
+        </p>
+        <div class="rateform">
+          <label v-for="c in catalogCategories" :key="c.code" class="rate">
+            <span class="rate-label">{{ c.code }} — {{ c.label }}</span>
+            <small class="rate-desc">Decimal, e.g. 0.30 = 30% off list. Blank = use base discount.</small>
+            <input
+              type="number" min="0" max="0.95" step="0.01" placeholder="base"
+              :value="catalogDiscountInput(c.code)"
+              @input="setCatalogDiscount(c.code, ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+        </div>
+
         <button class="btn-primary save" :disabled="savingRates" @click="saveRates">{{ savingRates ? "Saving…" : "Save rates" }}</button>
       </template>
     </section>
@@ -734,6 +852,7 @@ h2 { font-size: 14px; margin: 6px 0 12px; color: var(--ink); }
 .cl { font-size: 11px; color: var(--muted); }
 .cv { font-size: 22px; font-weight: 800; font-family: var(--mono); color: var(--ink); margin-top: 4px; }
 .hint { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+.subhead { font-size: 14px; font-weight: 700; margin: 26px 0 6px; }
 .rateform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 720px; }
 .rate { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--text); }
 .rate input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--mono); }

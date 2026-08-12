@@ -11,6 +11,9 @@ const defaults = (): Rates => ({
   markupMin: config.pricing.markupMin,
   markupMax: config.pricing.markupMax,
   costLimitMonthly: config.pricing.costLimitMonthly,
+  // Empty by default: every discount category falls back to `discount` (30%)
+  // until an admin sets the real PANW per-category rates.
+  catalogDiscounts: {},
 });
 
 let cache: Rates | null = null;

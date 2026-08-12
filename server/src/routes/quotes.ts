@@ -41,13 +41,29 @@ quotesRouter.post("/", requireAuth, async (req, res) => {
     managed: !!body.managed,
     markup: Number(body.markup || 0),
     competitiveModel: typeof body.competitiveModel === "string" ? body.competitiveModel.trim() : "",
+    // Catalog SKUs (MSSP). Capped per line and in total so a tampered client
+    // can't inflate a quote; unknown part numbers are ignored by the engine.
+    catalogItems: Array.isArray(body.catalogItems)
+      ? body.catalogItems
+          .filter((c: unknown): c is { partNumber: unknown; qty: unknown } => !!c && typeof c === "object")
+          .map((c: { partNumber: unknown; qty: unknown }) => ({
+            partNumber: String(c.partNumber ?? "").trim().slice(0, 64),
+            qty: Math.min(10_000, Math.max(1, Math.floor(Number(c.qty) || 1))),
+          }))
+          .filter((c: { partNumber: string }) => !!c.partNumber)
+          .slice(0, 50)
+      : [],
   };
-  if (!selection.sku || !selection.users) {
+  // A quote needs either a firewall (the guided flow) or at least one catalog
+  // SKU (a standalone MSSP subscription quote).
+  const hasCatalog = (selection.catalogItems?.length ?? 0) > 0;
+  if (!hasCatalog && (!selection.sku || !selection.users)) {
     return res.status(400).json({ error: "sku and users are required" });
   }
   // Guardrail: a sane, whole user count (huge values usually mean a typo/abuse
-  // and would inflate per-user XDR pricing).
-  selection.users = Math.floor(selection.users);
+  // and would inflate per-user XDR pricing). Catalog-only quotes have no user
+  // sizing, so default to 1 rather than rejecting.
+  selection.users = Math.floor(selection.users) || (hasCatalog ? 1 : 0);
   if (!Number.isInteger(selection.users) || selection.users < 1 || selection.users > config.pricing.maxUsers) {
     return res.status(400).json({ error: `User count must be a whole number between 1 and ${config.pricing.maxUsers.toLocaleString()}.` });
   }
