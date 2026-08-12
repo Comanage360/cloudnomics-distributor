@@ -30,6 +30,10 @@ export const useQuote = defineStore("quote", () => {
   // free-text answers or reach every step, so we tell the reseller rather than
   // letting it look like it's working.
   const aiDegraded = ref(false);
+  // Server-tracked MSSP question state, echoed back in snapshot() so the step
+  // is asked exactly once and the flow can't run ahead of the answer.
+  const msspResolved = ref(false);
+  const msspHolds = ref(0);
   const limitRequested = ref(false);   // they already submitted a request (awaiting admin)
   const limitModalOpen = ref(false);   // the request modal is open
   function openLimitRequest() { limitModalOpen.value = true; }
@@ -84,6 +88,7 @@ export const useQuote = defineStore("quote", () => {
         customer: { ...customer }, quoteNumber: quoteNumber.value,
         sent: sent.value, sessionId: sessionId.value,
         limited: limited.value, limitInfo: limitInfo.value, limitRequested: limitRequested.value,
+        msspResolved: msspResolved.value, msspHolds: msspHolds.value,
       }));
     } catch { /* quota/serialization — ignore */ }
   }
@@ -102,6 +107,7 @@ export const useQuote = defineStore("quote", () => {
       quoteNumber.value = s.quoteNumber ?? null;
       sent.value = !!s.sent;
       limited.value = !!s.limited; limitInfo.value = s.limitInfo ?? null; limitRequested.value = !!s.limitRequested;
+      msspResolved.value = !!s.msspResolved; msspHolds.value = Number(s.msspHolds) || 0;
       sessionId.value = s.sessionId || newSessionId();
       mid = messages.value.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
       return true;
@@ -129,6 +135,7 @@ export const useQuote = defineStore("quote", () => {
     quoteNumber.value = null; sent.value = false;
     limited.value = false; limitInfo.value = null; limitRequested.value = false; limitModalOpen.value = false;
     aiDegraded.value = false; // live status, re-established by the next turn
+    msspResolved.value = false; msspHolds.value = 0;
     sessionId.value = newSessionId(); // a fresh session each new quote
     addClaude('Welcome to Cloudnomics Palo Alto Networks AI Advisor. Tell me about the requirement — e.g. "best firewall for a 200-user office" — and I\'ll recommend the right kit and build the quote with you.');
   }
@@ -142,6 +149,8 @@ export const useQuote = defineStore("quote", () => {
       competitiveModel: sel.competitiveModel || undefined,
       markup: sel.markup,
       catalogItems: sel.catalogItems?.length ? [...sel.catalogItems] : undefined,
+      msspResolved: msspResolved.value || undefined,
+      msspHolds: msspHolds.value || undefined,
       customerName: customer.name || undefined,
       customerEmail: customer.email || undefined,
     };
@@ -163,6 +172,8 @@ export const useQuote = defineStore("quote", () => {
     if (typeof patch.markup === "number") sel.markup = patch.markup;
     // The advisor sends the full desired list, so replace rather than merge —
     // that's how it removes an item the reseller changed their mind about.
+    if (patch.msspResolved) msspResolved.value = true;
+    if (typeof patch.msspHolds === "number") msspHolds.value = patch.msspHolds;
     if (Array.isArray(patch.catalogItems)) {
       sel.catalogItems = patch.catalogItems.map((c) => ({
         partNumber: String(c.partNumber),

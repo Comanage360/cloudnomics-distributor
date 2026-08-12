@@ -16,6 +16,13 @@ export interface ChatState {
   customerEmail?: string;
   /** MSSP / global-list SKUs on the quote. A patch replaces the whole list. */
   catalogItems?: { partNumber: string; qty: number }[];
+  /** Server-set once the reseller has actually ANSWERED the MSSP question —
+   *  i.e. the model returned a catalogItems list, empty ("none") or not.
+   *  Asking isn't enough: "what can you offer?" is a browse, not an answer. */
+  msspResolved?: boolean;
+  /** How many turns we've held the flow on the MSSP step. Bounded so a model
+   *  that never records an answer can't strand the session there. */
+  msspHolds?: number;
 }
 
 export interface ChatTurn {
@@ -150,6 +157,49 @@ function sanitizePatch(p: ChatState | undefined, pricelist: Pricelist, rates: Ra
   return out;
 }
 
+/**
+ * Steps that come after the MSSP question in the flow. If the model tries to
+ * jump to one of these before the reseller has been asked, we hold it back.
+ */
+const AFTER_MSSP: readonly Step[] = ["markup", "whitelabel", "send", "done"];
+
+/**
+ * Guarantee the MSSP question happens exactly once.
+ *
+ * Left to the model, `step` was non-deterministic: sometimes it returned "mssp"
+ * and the quick-select buttons appeared, sometimes it skipped straight to
+ * markup and they never did. This pins the step server-side — the model still
+ * writes the wording, but not whether the question gets asked.
+ */
+const MAX_MSSP_HOLDS = 3;
+
+function enforceMsspStep(state: ChatState, patch: ChatState, step: Step): Step {
+  // Answered already (added items, or explicitly declined with an empty list).
+  if (state.msspResolved || Array.isArray(patch.catalogItems)) return step;
+  if (!AFTER_MSSP.includes(step)) return step;            // not skipping past it yet
+  if ((state.msspHolds ?? 0) >= MAX_MSSP_HOLDS) return step; // don't strand the session
+  const s = { ...state, ...patch };
+  if (!s.sku && !s.catalogItems?.length) return step;     // nothing on the quote yet
+  return "mssp";
+}
+
+/** The MSSP question, written server-side so it reads correctly when we've held
+ *  the model back from skipping the step. Uses the same bullet formatting the
+ *  advisor is told to produce. */
+function msspPrompt(pricelist: Pricelist): string {
+  const priced = (pricelist.catalog ?? []).filter((c) => c.list != null);
+  const headline = priced
+    .filter((c) => /-MSSP$/i.test(c.partNumber)) // parent tenants / platform SKUs
+    .slice(0, 5)
+    .map((c) => `- **${c.model}** — ${c.description.slice(0, 60)} (${fmt(c.list as number)}/yr)`);
+  return [
+    "Before we set the markup — would you like to add any MSSP subscriptions to this quote?",
+    ...(headline.length ? ["", ...headline] : []),
+    "",
+    "Tell me which ones and how many, or say no thanks and we'll move on.",
+  ].join("\n");
+}
+
 /** Best-effort step if the model returns an unknown one. */
 function deriveStep(state: ChatState, patch: ChatState): Step {
   const s = { ...state, ...patch };
@@ -266,11 +316,19 @@ export async function advise(
       };
     }
     const patch = sanitizePatch(parsed.patch, pricelist, rates);
-    const step = (STEPS as readonly string[]).includes(parsed.step || "")
+    const modelStep = (STEPS as readonly string[]).includes(parsed.step || "")
       ? (parsed.step as Step)
       : deriveStep(state, patch);
+    const step = enforceMsspStep(state, patch, modelStep);
+    // Server-controlled: an answer is a catalogItems list, empty or not.
+    if (Array.isArray(patch.catalogItems)) patch.msspResolved = true;
+    // If we held the model back, its reply is about the step it tried to skip
+    // to — asking for the customer's email while showing MSSP options would
+    // just confuse. Ask the question ourselves; it resumes on the next turn.
+    const held = step === "mssp" && modelStep !== "mssp";
+    if (held) patch.msspHolds = (state.msspHolds ?? 0) + 1;
     return {
-      reply: (parsed.reply || "Let's keep building your quote.").trim(),
+      reply: held ? msspPrompt(pricelist) : (parsed.reply || "Let's keep building your quote.").trim(),
       patch,
       step,
       done: !!parsed.done || step === "done",

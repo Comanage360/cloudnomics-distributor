@@ -59,13 +59,20 @@ const quickOpts = computed<{ label: string; send: string }[]>(() => {
         { label: "Add managed service", send: "Yes, add the Cloudnomics managed service." },
         { label: "Skip", send: "No managed service." },
       ];
-    case "mssp":
+    case "mssp": {
+      // Built from the imported catalog rather than hardcoded, so the options
+      // track whatever SKUs are actually loaded. Parent/platform SKUs only —
+      // child tenants and add-ons are follow-ups the reseller asks for.
+      const parents = (q.pricelist?.catalog ?? [])
+        .filter((c) => c.list != null && /-MSSP$/i.test(c.partNumber))
+        .slice(0, 4)
+        .map((c) => ({ label: c.model, send: `Add ${c.partNumber} to the quote.` }));
       return [
-        { label: "Cortex XSIAM (MSSP)", send: "Add the Cortex XSIAM MSSP parent tenant." },
-        { label: "Cortex XDR (MSSP)", send: "Add the Cortex XDR MSSP parent tenant." },
+        ...parents,
         { label: "Browse catalog", send: "What MSSP subscriptions can you offer?" },
         { label: "No MSSP", send: "No MSSP subscriptions for this quote." },
       ];
+    }
     default:
       return [];
   }

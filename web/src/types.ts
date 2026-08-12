@@ -83,6 +83,10 @@ export interface ChatStatePatch {
   customerEmail?: string;
   /** MSSP / global-list SKUs on the quote. A patch replaces the whole list. */
   catalogItems?: QuoteCatalogLine[];
+  /** Server-set once the reseller has answered the MSSP question. */
+  msspResolved?: boolean;
+  /** Server-set count of turns held on the MSSP step (bounded). */
+  msspHolds?: number;
 }
 
 export interface AuthUser {
